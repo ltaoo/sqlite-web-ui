@@ -6,7 +6,7 @@ import qs from "qs";
 import parse from "url-parse";
 
 import { BaseDomain, Handler } from "@/domains/base";
-import { JSONObject } from "@/types";
+import { JSONObject } from "@/types/index";
 
 enum Events {
   PushState,
@@ -82,9 +82,6 @@ type NavigatorState = {
   search: string;
   location: string;
 };
-type NavigatorProps = {
-  location: RouteLocation;
-};
 
 export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
   static prefix: string | null = null;
@@ -101,7 +98,7 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
     };
   }
 
-  _name = "NavigatorCore";
+  unique_id = "NavigatorCore";
   debug = false;
 
   name = "root";
@@ -144,13 +141,17 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
     };
   }
 
-  constructor(props: Partial<{ _name: string }> & NavigatorProps) {
-    super(props);
-
-    const { pathname, href, search, origin } = props.location;
-    const cleanPathname = pathname.replace(NavigatorCore.prefix!, "");
+  /** 启动路由监听 */
+  async prepare(location: RouteLocation) {
+    // console.log("[DOMAIN]router - start");
+    const { pathname, href, search, origin } = location;
+    let cleanPathname = pathname;
+    if (NavigatorCore.prefix && NavigatorCore.prefix.match(/^\/[a-z0-9A-Z]{1,}/)) {
+      cleanPathname = pathname.replace(NavigatorCore.prefix!, "");
+    }
     this.setPathname(cleanPathname);
     this.origin = origin;
+    this.location = location;
     // this.pathname = pathname;
     const query = buildQuery(href);
     this.query = query;
@@ -160,24 +161,9 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
       type: "initialize",
     };
   }
-
-  // async prepare(location: RouteLocation) {
-  //   const { pathname, href, search, origin } = location;
-  //   const cleanPathname = pathname.replace(NavigatorCore.prefix!, "");
-  //   this.setPathname(cleanPathname);
-  //   this.origin = origin;
-  //   const query = buildQuery(href);
-  //   this.query = query;
-  //   this._pending = {
-  //     pathname: cleanPathname,
-  //     search,
-  //     type: "initialize",
-  //   };
-  // }
   start() {
     const { pathname } = this._pending;
-    const cleanPathname = pathname.replace(NavigatorCore.prefix!, "");
-    this.setPathname(cleanPathname);
+    this.setPathname(pathname);
     this.histories = [
       {
         pathname,
@@ -189,7 +175,6 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
     this.prevPathname = p;
   }
   private setPathname(p: string) {
-    console.log("set pathname", p);
     this.pathname = p;
   }
   /** 调用该方法来「改变地址」 */
@@ -315,7 +300,6 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
     // this.emit(Events.PathnameChange, { ...this._pending });
     // forward
     if (isForward) {
-      console.log("is forward");
       this.setPrevPathname(this.pathname);
       this.setPathname(targetPathname);
       const lastStackWhenBack = this.prevHistories.pop();
@@ -327,11 +311,10 @@ export class NavigatorCore extends BaseDomain<TheTypesOfEvents> {
       this.emit(Events.PopState, { type: "forward", pathname, href });
       return;
     }
-    if (this.histories.length === 1) {
-      return;
-    }
+    // if (this.histories.length === 1) {
+    //   return;
+    // }
     // back
-    console.log("is back");
     this.emit(Events.Back);
     // var confirmationMessage = "您的输入还未完成，确认放弃吗？";
     // if (confirm(confirmationMessage)) {

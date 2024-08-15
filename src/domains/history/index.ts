@@ -172,6 +172,7 @@ export class HistoryCore<K extends string, R extends Record<string, any>> extend
       console.log("[DOMAIN]history/index - push 2. no matched route", uniqueKey);
       return null;
     }
+    console.log("[DOMAIN]history/index - before const created = new RouteViewCore", route, this.$router);
     const created = new RouteViewCore({
       name: route.name,
       pathname: route.pathname,

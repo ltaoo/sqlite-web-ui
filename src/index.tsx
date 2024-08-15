@@ -34,10 +34,13 @@ function Application() {
       texts: text,
     });
   });
-  const { innerWidth, innerHeight } = window;
-  app.start({
-    width: innerWidth,
-    height: innerHeight,
+  onMount(() => {
+    const { innerWidth, innerHeight, location } = window;
+    history.$router.prepare(location);
+    app.start({
+      width: innerWidth,
+      height: innerHeight,
+    });
   });
 
   return (
@@ -81,5 +84,4 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
     "Root element not found. Did you forget to add it to your index.html? Or maybe the id attribute got mispelled?"
   );
 }
-console.log("invoke render Application");
 render(() => <Application />, root!);

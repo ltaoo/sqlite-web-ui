@@ -1,6 +1,5 @@
-import debounce from "lodash/fp/debounce";
-
 import { BaseDomain, Handler } from "@/domains/base";
+import { debounce } from "@/utils/lodash/debounce";
 
 enum Events {
   StateChange,

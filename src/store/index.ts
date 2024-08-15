@@ -58,11 +58,12 @@ export const app = new Application({
     const { pathname, query } = history.$router;
     const route = routesWithPathname[pathname];
     console.log("[ROOT]onMount", pathname, route);
-    // request.appendHeaders({
-    //   Authorization: app.$user.token,
-    // });
     if (!route) {
       history.push("root.notfound");
+      return Result.Ok(null);
+    }
+    if (route.name === "root") {
+      history.push("root.home");
       return Result.Ok(null);
     }
     if (!route.options?.require?.includes("login")) {

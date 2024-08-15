@@ -6,9 +6,9 @@ import { Result } from "@/domains/result/index";
  */
 export const request = request_factory({
   hostnames: {
-    dev: "/",
-    test: "/",
-    prod: "/",
+    dev: "",
+    test: "",
+    prod: "",
   },
   process<T>(r: Result<{ code: number | string; msg: string; data: T }>) {
     if (r.error) {

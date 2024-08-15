@@ -350,7 +350,7 @@ export class RouteViewCore extends BaseDomain<TheTypesOfEvents> {
   }
   buildUrlWithPrefix(query: Record<string, string | number>) {
     const url = buildUrl(this.pathname, this.params, query);
-    return [NavigatorCore.prefix, url].join("");
+    return [NavigatorCore.prefix, url].join("").replace(/\/\//, "/");
   }
 
   onStart(handler: Handler<TheTypesOfEvents[Events.Start]>) {

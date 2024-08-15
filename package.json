@@ -1,5 +1,5 @@
 {
-  "name": "@family-flix/media_profile",
+  "name": "sqlite-web-ui",
   "private": true,
   "version": "0.0.1",
   "scripts": {
@@ -28,7 +28,6 @@
     "class-variance-authority": "^0.5.2",
     "clsx": "^1.2.1",
     "dayjs": "^1.11.7",
-    "lodash": "^4.17.21",
     "lucide-solid": "^0.314.0",
     "mitt": "^3.0.0",
     "path-to-regexp": "^6.2.1",

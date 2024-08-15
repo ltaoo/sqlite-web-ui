@@ -300,7 +300,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       const r = await $request.exec.run({
         query: `SELECT * FROM ${table.name} LIMIT ${response.pageSize} OFFSET ${
           (response.page - 1) * response.pageSize
-        }`,
+        };`,
       });
       response.loading = false;
       emitter.emit(Events.ResponseChange, { ...response });
