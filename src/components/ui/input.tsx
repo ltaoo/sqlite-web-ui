@@ -25,6 +25,9 @@ const Input = (props: { store: InputCore<any>; prefix?: JSX.Element; class?: str
   });
 
   const { loading, value, placeholder, disabled, type } = state();
+  onMount(() => {
+    store.setMounted();
+  });
 
   // React.useEffect(() => {
   //   return () => {

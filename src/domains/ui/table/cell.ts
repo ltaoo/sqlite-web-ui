@@ -47,8 +47,6 @@ export class TableCellCore extends BaseDomain<TheTypesOfBaseEvents> {
   inputValue = "";
   waitUpdate = false;
 
-  cells: TableCellCore[] = [];
-
   $table: TableCore;
 
   get state(): TableCellCoreState {

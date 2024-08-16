@@ -1,142 +1,77 @@
-import { createSignal, For, JSX, onMount, Show } from "solid-js";
-import { Calendar, CaseLower, Check, Hash, Settings } from "lucide-solid";
+/**
+ * @file 数据库管理
+ */
+import { createSignal, For, onMount, Show } from "solid-js";
+import { Calendar, Check, Hash, Settings } from "lucide-solid";
 
 import { ViewComponent, ViewComponentProps } from "@/store/types";
-import { request } from "@/biz/requests";
 import { base, Handler } from "@/domains/base";
 import { RequestCore } from "@/domains/request";
 import { Response } from "@/domains/list/typing";
 import { Select } from "@/components/ui/select";
-import { InputCore, PopoverCore, SelectCore } from "@/domains/ui";
-import { Input, Popover } from "@/components/ui";
+import { ButtonCore, InputCore, PopoverCore, SelectCore } from "@/domains/ui";
+import { Button, Input, Popover } from "@/components/ui";
 import { TableRowCore } from "@/domains/ui/table/row";
 import { TableCellCore } from "@/domains/ui/table/cell";
 import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
 import { TableColumn, TableColumnCore } from "@/domains/ui/table/column";
 import { DEFAULT_RESPONSE } from "@/domains/list/constants";
+import { TableFilterCore } from "@/biz/filter";
+import { execQueryRaw, fetchTableList, fetchTableListProcess } from "@/biz/services";
+import { buildQuerySQL } from "@/biz/filter/utils";
 
-function fetchTableList() {
-  return request.post<TableWithColumns[]>("/api/v1/database/tables");
-}
-function execQueryRaw(params: { query: string }) {
-  return request.post("/api/v1/database/exec", params);
-}
-
-function TableFilterCore(props: {
-  columns: {}[];
-  table: { name: string; columns: {}[] };
-  onSearch?: (values: {}[]) => void;
-}) {
-  const values: (string | null)[] = [];
-  const select1 = new SelectCore<string>({
-    defaultValue: "",
-    options: [],
-    onChange(v) {
-      console.log("[PAGE]Filter onChange");
-      values[0] = v;
-      const condition1 = new SelectCore({
-        defaultValue: "=",
-        options: [
-          {
-            label: "等于",
-            value: "=",
-          },
-          {
-            label: "包含",
-            value: "LIKE",
-          },
-        ],
-        onChange(v) {
-          values[1] = v;
-        },
-      });
-      values[1] = condition1.value;
-      const input1 = new InputCore({
-        defaultValue: "",
-        onChange(v) {
-          values[2] = v;
-        },
-        onBlur() {
-          if (props.onSearch) {
-            props.onSearch(values.filter(Boolean) as string[]);
-          }
-        },
-        onEnter() {
-          if (props.onSearch) {
-            props.onSearch(values.filter(Boolean) as string[]);
-          }
-        },
-      });
-      values[2] = input1.value;
-      builder[1] = condition1;
-      builder[2] = input1;
-      emitter.emit(Events.Change, [...builder]);
-    },
-  });
-  let builder: (SelectCore<string> | InputCore<string>)[] = [select1];
-  enum Events {
-    Change,
-  }
-  type TheTypesOfEvents = {
-    [Events.Change]: typeof builder;
-  };
-  const emitter = base<TheTypesOfEvents>();
-  return {
-    setOptions(options: { label: string; value: string }[]) {
-      builder = [select1];
-      select1.setOptionsForce(options);
-      emitter.emit(Events.Change, [...builder]);
-    },
-    builder,
-    onChange(handler: Handler<TheTypesOfEvents[Events.Change]>) {
-      emitter.on(Events.Change, handler);
-    },
-  };
-}
 function SqliteDatabasePageCore(props: ViewComponentProps) {
-  const { app } = props;
+  const { app, storage } = props;
 
   const response = {
     ...DEFAULT_RESPONSE,
     pageSize: 100,
   };
   const $request = {
-    tableList: new RequestCore(fetchTableList),
+    tableList: new RequestCore(fetchTableList, {
+      process: fetchTableListProcess,
+      onSuccess(v) {
+        $filter.setTables(v);
+      },
+    }),
     exec: new RequestCore(execQueryRaw),
   };
-  function buildColumns(columns: TableWithColumns["columns"]) {
+  function buildColumns(columns: TableWithColumns["columns"], widths: Record<string, number>) {
+    const prefix = new TableColumnCore({
+      type: "index",
+      name: "index",
+      x: 0,
+      width: widths["index"] || 200,
+      is_primary_key: 0,
+      // options: {},
+    });
     const base = columns.map((column, i) => {
-      const { cid, name, type, not_null, value, pk } = column;
+      const { name, type, references } = column;
       const r = new TableColumnCore({
         x: i,
-        type: (() => {
-          if (type === "TEXT") {
-            return "text";
-          }
-          if (type === "datetime") {
-            return "calendar";
-          }
-          if (type === "INTEGER") {
-            return "numeric";
-          }
-          return "text";
-        })(),
-        title: name,
-        width: 200,
-        options: (() => {
-          if (type === "datetime") {
-            return {
-              format: "YYYY-MM-DD",
-            };
-          }
-          return {};
-        })(),
+        type,
+        name: name,
+        is_primary_key: 0,
+        width: widths[name] || 200,
+        references,
+        // options: (() => {
+        //   if (type === "datetime") {
+        //     return {
+        //       format: "YYYY-MM-DD",
+        //     };
+        //   }
+        //   return {};
+        // })(),
       });
       return r;
     });
-    return [...base];
+    return [prefix, ...base].map((c, i) => {
+      c.x = i;
+      return c;
+    });
   }
   function renderTable(dataSource: string[][], columns: TableColumn[], response: Response<any>) {
+    console.log("render table", columns);
     return dataSource.map((row, index) => {
       const y = index + (response.page - 1) * response.pageSize;
       const cells = [
@@ -144,82 +79,80 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
           x: 0,
           y,
           value: String(y + 1),
+          width: columns[0].width,
           disabled: true,
           type: "index",
           $table,
         }),
       ].concat(
-        row.map(
-          (cell, i) =>
-            new TableCellCore({
-              x: i + 1,
-              y,
-              value: cell as string,
-              width: columns[i].width,
-              $table,
-              onSelect(ins) {
-                console.log("[PAGE]sqlite/index - in onSelect callback", curCell);
-                if (curCell !== null) {
-                  curCell.unselect();
-                  curCell.unedit();
-                }
-                curCell = ins;
-              },
-              onUpdate(opt) {
-                const { x, y, value } = opt;
-                const column = $table.columns[x];
-                if (!column) {
-                  return;
-                }
-                const first = $table.columns[1];
-                if (!first) {
-                  return;
-                }
-                const name = $table.name;
-                if (!name) {
-                  return;
-                }
-                const id = row[0];
-                const sql = `UPDATE ${name} SET ${column.title} = '${value}' WHERE ${first.title} = '${id}';`;
-                console.log(sql);
-              },
-            })
-        )
+        row.map((cell, i) => {
+          const column = columns[i + 1];
+          return new TableCellCore({
+            x: i + 1,
+            y,
+            value: cell as string,
+            width: column.width,
+            $table,
+            onSelect(ins) {
+              console.log("[PAGE]sqlite/index - in onSelect callback", curCell);
+              if (curCell !== null) {
+                curCell.unselect();
+                curCell.unedit();
+              }
+              curCell = ins;
+            },
+            // onUpdate(opt) {
+            //   const { x, y, value } = opt;
+            //   const column = $table.columns[x];
+            //   if (!column) {
+            //     return;
+            //   }
+            //   const first = $table.columns[1];
+            //   if (!first) {
+            //     return;
+            //   }
+            //   const name = $table.name;
+            //   if (!name) {
+            //     return;
+            //   }
+            //   const id = row[0];
+            //   const sql = `UPDATE ${name} SET ${column.name} = '${value}' WHERE ${first.name} = '${id}';`;
+            //   console.log(sql);
+            // },
+          });
+        })
       );
-      // for (let i = 0; i < cells.length; i += 1) {
-      //   const cell = cells[i];
-      //   cell.width = columns[i].width;
-      // }
       const $row = new TableRowCore({ index: y, cells });
+      // console.log($row);
       return $row;
     });
   }
 
   const $table = new TableCore({});
   const $filter = TableFilterCore({
-    columns: [],
-    table: { name: "", columns: [] },
+    table: {
+      name: $table.name,
+      columns: $table.columns.map((col) => {
+        return {
+          name: col.name,
+          type: col.type,
+          width: col.width,
+          // options: col.options,
+        };
+      }),
+    },
+    tables: $request.tableList.response || [],
     async onSearch(values) {
       response.page = 1;
       response.noMore = false;
       response.loading = true;
-      response.search.values = values;
       emitter.emit(Events.ResponseChange, { ...response });
-      const { name, columns } = $table;
-      const [field1, condition1, value1] = values;
-      const column = columns.find((col) => col.title === field1);
-      console.log("column", column);
-      let sql = `SELECT * FROM ${name} WHERE ${field1} ${condition1} ${(() => {
-        if (condition1 === "LIKE") {
-          return `'%${value1}%'`;
-        }
-        if (column?.type === "numeric") {
-          return value1;
-        }
-        return `'${value1}'`;
-      })()} LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize};`;
-      console.log(field1, condition1, value1);
-      console.log(sql);
+      const partSQL = buildQuerySQL($table, values, $request.tableList.response || []);
+      console.log(values);
+      // console.log(values.map((v) => v.value));
+      console.log(partSQL);
+      const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
+      const sql = partSQL + pagination + ";";
       const r = await $request.exec.run({ query: sql });
       response.loading = false;
       emitter.emit(Events.ResponseChange, { ...response });
@@ -248,6 +181,71 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       $table.refresh();
     },
   });
+  async function removeSelectedRows() {
+    const { name, columns, data, selectedRows } = $table;
+    const first = columns[1];
+    if (!first) {
+      return;
+    }
+    const sql = `DELETE FROM ${name} WHERE ${first.name} IN (${selectedRows
+      .map((i) => {
+        return data[i][0];
+      })
+      .join(", ")});`;
+    console.log("sql", sql);
+    const r2 = await $request.exec.run({ query: sql });
+    if (r2.error) {
+      app.tip({
+        text: [r2.error.message],
+      });
+      return;
+    }
+    const nextData = data.filter((row, i) => !selectedRows.includes(i));
+    $table.cells = $table.cells.filter((cell) => {
+      return !selectedRows.includes(cell.y);
+    });
+    const rows = $table.rows.filter((row, i) => !selectedRows.includes(i));
+    $table.setData(nextData);
+    $table.setRows(rows);
+    $table.clearSelectedRows();
+  }
+  async function execPendingUpdate() {
+    const pending = $table.state.pendingUpdate;
+    // console.log('[PAGE]sqlite - pending')
+    if (pending.length === 0) {
+      return;
+    }
+    for (let i = 0; i < pending.length; i += 1) {
+      await (async () => {
+        const opt = pending[i];
+        const { x, y, value } = opt;
+        const { name, columns, data } = $table;
+        const column = columns[x];
+        if (!column) {
+          return;
+        }
+        const first = columns[1];
+        if (!first) {
+          return;
+        }
+        if (!name) {
+          return;
+        }
+        const id = data[y][0];
+        const sql = `UPDATE ${name} SET ${column.name} = '${value}' WHERE ${first.name} = '${id}';`;
+        console.log(sql);
+        const r = await $request.exec.run({ query: sql });
+        if (r.error) {
+          app.tip({
+            text: [r.error.message],
+          });
+          return;
+        }
+        pending[i].completeUpdate();
+      })();
+    }
+  }
+
   enum Events {
     ResponseChange,
   }
@@ -271,6 +269,28 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
     ui: {
       $table,
       $filter,
+      $delete: new ButtonCore({
+        onClick() {
+          removeSelectedRows();
+        },
+      }),
+      $update: new ButtonCore({
+        onClick() {
+          execPendingUpdate();
+        },
+      }),
+      $drop: new ButtonCore({
+        onClick() {
+          const pending = $table.state.pendingUpdate;
+          if (pending.length === 0) {
+            return;
+          }
+          for (let i = 0; i < pending.length; i += 1) {
+            const cell = pending[i];
+            cell.cancelUpdate();
+          }
+        },
+      }),
     },
     rows: _rows,
     keycodes: _keycodes,
@@ -283,20 +303,17 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       }
     },
     async handleClickTable(table: TableWithColumns) {
+      $table.name = table.name;
       response.page = 1;
       response.loading = true;
       response.noMore = false;
       response.search.values = null;
       emitter.emit(Events.ResponseChange, { ...response });
-      const columns = buildColumns(table.columns);
-      $filter.setOptions(
-        columns.map((column) => {
-          return {
-            label: column.title,
-            value: column.title,
-          };
-        })
-      );
+      const widths = this.getWidths();
+      const columns = buildColumns(table.columns, widths);
+      $table.setColumns(columns);
+      $filter.setTable(table);
+      $filter.setOptions(columns);
       const r = await $request.exec.run({
         query: `SELECT * FROM ${table.name} LIMIT ${response.pageSize} OFFSET ${
           (response.page - 1) * response.pageSize
@@ -324,98 +341,35 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
         emitter.emit(Events.ResponseChange, { ...response });
       }
       const rows = renderTable(dataSource, columns, response);
-      const previewColumns = [
-        new TableColumnCore({
-          type: "index",
-          title: "index",
-          x: 0,
-          width: 200,
-          options: {},
-        }),
-        ...columns,
-      ].map((c, i) => {
-        c.x = i;
-        return c;
-      });
-      $table.name = table.name;
-      $table.setColumns(previewColumns);
       $table.setRows(rows);
       $table.setData(dataSource);
       $table.refresh();
     },
-    cancelPendingUpdate() {
-      const pending = $table.state.pendingUpdate;
-      if (pending.length === 0) {
-        return;
-      }
-      for (let i = 0; i < pending.length; i += 1) {
-        const cell = pending[i];
-        cell.cancelUpdate();
-      }
+    getWidths() {
+      const prev = storage.get("column_widths", {});
+      const widths = prev[$table.name];
+      return widths || {};
     },
-    async execPendingUpdate() {
-      const pending = $table.state.pendingUpdate;
-      // console.log('[PAGE]sqlite - pending')
-      if (pending.length === 0) {
-        return;
-      }
-      for (let i = 0; i < pending.length; i += 1) {
-        await (async () => {
-          const opt = pending[i];
-          const { x, y, value } = opt;
-          const { name, columns, data } = $table;
-          const column = columns[x];
-          if (!column) {
-            return;
-          }
-          const first = columns[1];
-          if (!first) {
-            return;
-          }
-          if (!name) {
-            return;
-          }
-          const id = data[y][0];
-          const sql = `UPDATE ${name} SET ${column.title} = '${value}' WHERE ${first.title} = '${id}';`;
-          console.log(sql);
-          const r = await $request.exec.run({ query: sql });
-          if (r.error) {
-            app.tip({
-              text: [r.error.message],
-            });
-            return;
-          }
-          pending[i].completeUpdate();
-        })();
-      }
-    },
-    async removeSelectedRows() {
-      const { name, columns, data, selectedRows } = $table;
-      const first = columns[1];
-      if (!first) {
-        return;
-      }
-      const sql = `DELETE FROM ${name} WHERE ${first.title} IN (${selectedRows
-        .map((i) => {
-          return data[i][0];
-        })
-        .join(", ")});`;
-      console.log("sql", sql);
-      const r2 = await $request.exec.run({ query: sql });
-      if (r2.error) {
-        app.tip({
-          text: [r2.error.message],
-        });
-        return;
-      }
-      const nextData = data.filter((row, i) => !selectedRows.includes(i));
-      $table.cells = $table.cells.filter((cell) => {
-        return !selectedRows.includes(cell.y);
+    setWidth(column: TableColumnCore, width: number) {
+      column.setWidth(width);
+      const name = $table.name;
+      storage.setWithPrev("column_widths", (v) => {
+        return {
+          ...v,
+          [name]: {
+            ...(v[name] || {}),
+            [column.name]: width,
+          },
+        };
       });
-      const rows = $table.rows.filter((row, i) => !selectedRows.includes(i));
-      $table.setData(nextData);
-      $table.setRows(rows);
-      $table.clearSelectedRows();
+      $table.setWidth();
+      for (let i = 0; i < $table.rows.length; i += 1) {
+        const row = $table.rows[i];
+        // console.log(column.title, column.width);
+        // const column = $page.ui.$table.columns[j];
+        const cell = row.cells[column.x];
+        cell.setWidth(column.width);
+      }
     },
     async loadMore() {
       console.log("[PAGE]loadMore", response.loading, response.noMore);
@@ -429,25 +383,15 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       response.page += 1;
       response.loading = true;
       emitter.emit(Events.ResponseChange, { ...response });
-      const { values } = response.search;
-      let condition = "";
-      if (values) {
-        const [field1, condition1, value1] = values as string[];
-        const column = $table.columns.find((col) => col.title === field1);
-        condition = ` WHERE ${field1} ${condition1} ${(() => {
-          if (condition1 === "LIKE") {
-            return `'%${value1}%'`;
-          }
-          if (column?.type === "numeric") {
-            return value1;
-          }
-          return `'${value1}'`;
-        })()}`;
-      }
+      const { values } = $filter;
+      const partSQL = buildQuerySQL($table, values, $request.tableList.response || []);
+      console.log(values.map((v) => v.type));
+      console.log(values.map((v) => v.value));
+      console.log(partSQL);
+      const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
+      const sql = partSQL + pagination + ";";
       const r = await $request.exec.run({
-        query: `SELECT * FROM ${name}${condition} LIMIT ${response.pageSize} OFFSET ${
-          (response.page - 1) * response.pageSize
-        };`,
+        query: sql,
       });
       response.loading = false;
       emitter.emit(Events.ResponseChange, { ...response });
@@ -482,14 +426,14 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
 }
 function ColumnTypeTag(props: { type: TableColumn["type"] }) {
   const { type } = props;
-  if (type === "numeric") {
+  if (type === "integer") {
     // return <CaseLower class="w-4 h-4" />;
     return <div>num</div>;
   }
   if (type === "text") {
     return <Hash class="w-4 h-4" />;
   }
-  if (type === "calendar") {
+  if (type === "datetime") {
     return <Calendar class="w-4 h-4" />;
   }
   if (type === "index") {
@@ -513,7 +457,7 @@ function TableColumnCell(props: { store: TableColumnCore }) {
         width: state().width ? `${state().width}px` : "auto",
       }}
     >
-      {state().title}
+      {state().name}
       <div class="absolute right-4 top-1/2 ml-4 -translate-y-1/2">
         <ColumnTypeTag type={state().type} />
       </div>
@@ -622,22 +566,26 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
   const [table, setTable] = createSignal($page.ui.$table.state);
   // const [dataSource, setDataSource] = createSignal<TableCellCore[][]>([]);
   // const [columns, setColumns] = createSignal<{ title: string; width: number }[]>([]);
-  const [filter, setFilter] = createSignal($page.ui.$filter.builder);
+  const [filter, setFilter] = createSignal($page.ui.$filter.values);
   const [left, setLeft] = createSignal(0);
 
   let $head: HTMLDivElement;
 
   $request.tableList.onResponseChange((v) => {
-    const prev = storage.get("column_widths");
     if (v === null) {
       return;
     }
-    for (let i = 0; i < v.length; i += 1) {
-      const t = v[i];
-      for (let j = 0; j < t.columns.length; j += 1) {
-        const column = t.columns[j];
-        const w = prev[column.name] || 200;
-        column.width = w;
+    console.log("[PAGE]home/index - the table list is", v);
+    const prev = storage.get("column_widths", {});
+    const widths = prev[$page.ui.$table.name];
+    if (widths) {
+      for (let i = 0; i < v.length; i += 1) {
+        const t = v[i];
+        for (let j = 0; j < t.columns.length; j += 1) {
+          const column = t.columns[j];
+          const w = widths[column.name] || 200;
+          column.width = w;
+        }
       }
     }
     setTables(v);
@@ -707,42 +655,19 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
               <div class="flex items-center space-x-2">
                 <For each={filter()}>
                   {(filter) => {
-                    if (filter instanceof SelectCore) {
-                      return <Select store={filter} />;
+                    if (filter.$input instanceof SelectCore) {
+                      return <Select store={filter.$input} />;
                     }
-                    if (filter instanceof InputCore) {
-                      return <Input store={filter} />;
+                    if (filter.$input instanceof InputCore) {
+                      return <Input store={filter.$input} />;
                     }
                     return null;
                   }}
                 </For>
+                <Show when={filter().length}>
+                  <Button store={$page.ui.$filter.$submit}>查询</Button>
+                </Show>
               </div>
-              <Show when={table().selectedRows.length}>
-                <div
-                  onClick={() => {
-                    $page.removeSelectedRows();
-                  }}
-                >
-                  删除{table().selectedRows.length}条记录
-                </div>
-              </Show>
-              <Show when={table().pendingUpdate.length}>
-                <div
-                  class=""
-                  onClick={() => {
-                    $page.execPendingUpdate();
-                  }}
-                >
-                  保存{table().pendingUpdate.length}个修改
-                </div>
-                <div
-                  onClick={() => {
-                    $page.cancelPendingUpdate();
-                  }}
-                >
-                  放弃修改
-                </div>
-              </Show>
             </div>
           </div>
           <div
@@ -867,6 +792,18 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
               </Show>
             </div>
           </div>
+
+          <div class="absolute left-1/2 bottom-12 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom">
+            <div class="space-x-2">
+              <Show when={table().selectedRows.length}>
+                <Button store={$page.ui.$delete}>删除{table().selectedRows.length}条记录</Button>
+              </Show>
+              <Show when={table().pendingUpdate.length}>
+                <Button store={$page.ui.$update}>保存{table().pendingUpdate.length}个修改</Button>
+                <Button store={$page.ui.$drop}>放弃修改</Button>
+              </Show>
+            </div>
+          </div>
         </div>
       </div>
       <Popover
@@ -878,7 +815,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                 {(column) => {
                   return (
                     <div class="flex items-center justify-between w-full">
-                      <div>{column.title}</div>
+                      <div>{column.name}</div>
                       <input
                         class="ml-4"
                         placeholder="输入宽度"
@@ -894,21 +831,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                           if (Number.isNaN(num)) {
                             return;
                           }
-                          column.setWidth(num);
-                          storage.setWithPrev("column_widths", (v) => {
-                            return {
-                              ...v,
-                              [column.title]: num,
-                            };
-                          });
-                          $page.ui.$table.setWidth();
-                          for (let i = 0; i < $page.ui.$table.rows.length; i += 1) {
-                            const row = $page.ui.$table.rows[i];
-                            // console.log(column.title, column.width);
-                            // const column = $page.ui.$table.columns[j];
-                            const cell = row.cells[column.x];
-                            cell.setWidth(column.width);
-                          }
+                          $page.setWidth(column, num);
                         }}
                       />
                     </div>

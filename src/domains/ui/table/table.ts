@@ -3,7 +3,7 @@ import { Result } from "@/domains/result";
 
 import { TableCellCore } from "./cell";
 import { TableRowCore } from "./row";
-import { TableColumnCore } from "./column";
+import { TableColumn, TableColumnCore } from "./column";
 
 function buildQueryRaw(body: {
   table: string;
@@ -27,15 +27,7 @@ function buildQueryRaw(body: {
 
 export type TableWithColumns = {
   name: string;
-  columns: {
-    cid: number;
-    name: string;
-    width: number;
-    type: "datetime" | "TEXT" | "INTEGER";
-    not_null: number;
-    value: null;
-    pk: number;
-  }[];
+  columns: TableColumn[];
 };
 
 enum Events {
@@ -47,6 +39,7 @@ type TheTypesOfBaseEvents = {
   [Events.Change]: TableCoreState;
 };
 type TableCellCoreProps = {
+  name?: string;
   disabled?: boolean;
   onSelect?: (ins: TableCore) => void;
 };
@@ -99,7 +92,8 @@ export class TableCore extends BaseDomain<TheTypesOfBaseEvents> {
   constructor(props: TableCellCoreProps) {
     super(props);
 
-    const { disabled = false, onSelect } = props;
+    const { name = "", disabled = false, onSelect } = props;
+    this.name = name;
     this.disabled = disabled;
 
     if (onSelect) {

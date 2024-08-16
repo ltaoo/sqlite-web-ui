@@ -1,7 +1,7 @@
 import { StorageCore } from "@/domains/storage";
 
 const DEFAULT_CACHE_VALUES = {
-  column_widths: {} as Record<string, number>,
+  column_widths: {} as Record<string, Record<string, number>>,
 };
 const key = "global";
 const e = globalThis.localStorage.getItem(key);

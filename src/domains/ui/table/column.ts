@@ -1,13 +1,14 @@
 import { BaseDomain, Handler } from "@/domains/base";
 
-// import { TableColumn } from "./table";
 export type TableColumn = {
-  title: string;
-  type: "index" | "text" | "calendar" | "numeric";
+  name: string;
+  type: "index" | "datetime" | "text" | "integer" | "table";
   width: number;
-  options: {
-    format?: string;
-  };
+  references?: string;
+  is_primary_key?: number;
+  // options: {
+  //   format?: string;
+  // };
 };
 
 enum Events {
@@ -17,30 +18,33 @@ type TheTypesOfBaseEvents = {
   [Events.Change]: TableColumnCoreState;
 };
 type TableColumnCoreProps = {
-  title: string;
-  type: "index" | "text" | "calendar" | "numeric";
+  name: string;
+  type: TableColumn["type"];
   width?: number;
+  references?: string;
+  is_primary_key: number;
   x: number;
-  options?: {
-    format?: string;
-  };
+  // options?: {
+  //   format?: string;
+  // };
 };
 type TableColumnCoreState = {
   width: number;
-  title: string;
+  name: string;
   type: TableColumn["type"];
 };
 
 export class TableColumnCore extends BaseDomain<TheTypesOfBaseEvents> {
-  title: string;
+  name: string;
   type: TableColumn["type"] = "text";
+  references?: string;
   width = 0;
   x = 0;
-  options: TableColumn["options"] = {};
+  // options: TableColumn["options"] = {};
 
   get state(): TableColumnCoreState {
     return {
-      title: this.title,
+      name: this.name,
       type: this.type,
       width: this.width,
     };
@@ -49,13 +53,14 @@ export class TableColumnCore extends BaseDomain<TheTypesOfBaseEvents> {
   constructor(props: TableColumnCoreProps) {
     super(props);
 
-    const { title, type, x, width = 200, options = {} } = props;
+    const { name, type, references, x, width = 200 } = props;
 
-    this.title = title;
-    this.width = width;
+    this.name = name;
     this.type = type;
+    this.references = references;
     this.x = x;
-    this.options = options;
+    this.width = width;
+    // this.options = options;
   }
   setWidth(width: number) {
     this.width = width;

@@ -1,7 +1,7 @@
 /**
  * @file 单选
  */
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal, onMount } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { Check, ChevronDown } from "lucide-solid";
 
@@ -117,6 +117,9 @@ export const Select = (props: { store: SelectCore<any> }) => {
 
   store.onStateChange((v) => {
     setState(v);
+  });
+  onMount(() => {
+    store.setMounted();
   });
 
   return (

@@ -32,10 +32,10 @@ export class StorageCore<T extends Record<string, unknown>> extends BaseDomain<T
     this.client = client;
   }
 
-  get<K extends keyof T>(key: K, defaultValue?: T) {
+  get<K extends keyof T>(key: K, defaultValue?: T[K]) {
     const v = this.values[key];
     if (v === undefined && defaultValue) {
-      return defaultValue[key] as T[K];
+      return defaultValue as T[K];
     }
     return v as T[K];
   }

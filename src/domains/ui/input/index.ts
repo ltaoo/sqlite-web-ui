@@ -25,6 +25,7 @@ type InputProps<T> = {
   placeholder?: string;
   type?: string;
   onChange?: (v: T) => void;
+  onMounted?: () => void;
   onEnter?: (v: T) => void;
   onBlur?: (v: T) => void;
 };
@@ -68,6 +69,7 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
       onChange,
       onBlur,
       onEnter,
+      onMounted,
     } = options;
     if (name) {
       this.unique_id = name;
@@ -86,6 +88,9 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     }
     if (onBlur) {
       this.onBlur(onBlur);
+    }
+    if (onMounted) {
+      this.onMounted(onMounted);
     }
   }
   setMounted() {

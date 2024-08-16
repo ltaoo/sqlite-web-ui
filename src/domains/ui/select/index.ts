@@ -15,12 +15,14 @@ import { clamp } from "./utils";
 
 const CONTENT_MARGIN = 10;
 enum Events {
+  Mounted,
   StateChange,
   Change,
   Focus,
   Placed,
 }
 type TheTypesOfEvents<T> = {
+  [Events.Mounted]: void;
   [Events.StateChange]: SelectState<T>;
   [Events.Change]: T | null;
   [Events.Focus]: void;
@@ -31,6 +33,7 @@ type SelectProps<T> = {
   // options: SelectItemCore<T>[];
   options?: { value: T; label: string }[];
   onChange?: (v: T | null) => void;
+  onMounted?: () => void;
 };
 type SelectState<T> = {
   options: { value: T; label: string }[];
@@ -101,7 +104,7 @@ export class SelectCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
   constructor(props: Partial<{ _name: string }> & SelectProps<T>) {
     super(props);
 
-    const { defaultValue, options = [], onChange } = props;
+    const { defaultValue, options = [], onMounted, onChange } = props;
     console.log("[DOMAIN]ui/select/index - constructor", defaultValue);
     this.options = options.map((opt) => {
       return opt;
@@ -132,6 +135,9 @@ export class SelectCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
       console.log(...this.log("this.layer.onDismiss"));
       this.hide();
     });
+    if (onMounted) {
+      this.onMounted(onMounted);
+    }
     if (onChange) {
       this.onChange(onChange);
     }
@@ -231,6 +237,9 @@ export class SelectCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
   }
   focus() {
     this.emit(Events.Focus);
+  }
+  setMounted() {
+    this.emit(Events.Mounted);
   }
   setOptionsForce(options: NonNullable<SelectProps<T>["options"]>) {
     this.options = options;
@@ -420,6 +429,9 @@ export class SelectCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     // this.emit(Events.StateChange, { ...this.state });
   }
 
+  onMounted(handler: Handler<TheTypesOfEvents<T>[Events.Mounted]>) {
+    return this.on(Events.Mounted, handler);
+  }
   onStateChange(handler: Handler<TheTypesOfEvents<T>[Events.StateChange]>) {
     return this.on(Events.StateChange, handler);
   }
@@ -518,7 +530,7 @@ export class SelectInListCore<K extends string, T> extends BaseDomain<TheTypesIn
   // }
 
   onChange(handler: Handler<TheTypesInListOfEvents<K, T>[Events.Change]>) {
-    this.on(Events.Change, handler);
+    return this.on(Events.Change, handler);
   }
   onStateChange(handler: Handler<TheTypesInListOfEvents<K, T>[Events.StateChange]>) {
     this.on(Events.StateChange, handler);
