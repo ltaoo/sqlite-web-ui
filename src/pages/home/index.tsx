@@ -110,24 +110,6 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
               }
               curCell = ins;
             },
-            // onUpdate(opt) {
-            //   const { x, y, value } = opt;
-            //   const column = $table.columns[x];
-            //   if (!column) {
-            //     return;
-            //   }
-            //   const first = $table.columns[1];
-            //   if (!first) {
-            //     return;
-            //   }
-            //   const name = $table.name;
-            //   if (!name) {
-            //     return;
-            //   }
-            //   const id = row[0];
-            //   const sql = `UPDATE ${name} SET ${column.name} = '${value}' WHERE ${first.name} = '${id}';`;
-            //   console.log(sql);
-            // },
           });
         })
       );
@@ -303,6 +285,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
     },
     rows: _rows,
     keycodes: _keycodes,
+    /** 列表请求的状态，包括 noMore、loading 等 */
     response,
     ready() {
       $request.tableList.run();
@@ -359,15 +342,27 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       const widths = prev[$table.name];
       return widths || {};
     },
-    setWidth(column: TableColumnCore, width: number) {
-      column.setWidth(width);
+    setWidth(column: TableColumnCore, width: string | number) {
+      if (typeof width === "string") {
+        if (width === "") {
+          return;
+        }
+        if (width.trim() === "") {
+          return;
+        }
+      }
+      const num = Number(width);
+      if (Number.isNaN(num)) {
+        return;
+      }
+      column.setWidth(num);
       const name = $table.name;
       storage.setWithPrev("column_widths", (v) => {
         return {
           ...v,
           [name]: {
             ...(v[name] || {}),
-            [column.name]: width,
+            [column.name]: num,
           },
         };
       });
@@ -394,8 +389,6 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       emitter.emit(Events.ResponseChange, { ...response });
       const { values } = $filter;
       const partSQL = buildQuerySQL($table, values, $request.tableList.response || []);
-      console.log(values.map((v) => v.type));
-      console.log(values.map((v) => v.value));
       console.log(partSQL);
       const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
       const sql = partSQL + pagination + ";";
@@ -486,7 +479,6 @@ function TableCell(props: {
 
   const [state, setState] = createSignal(store.state);
   store.onChange((v) => {
-    console.log("handler change", v.width);
     setState(v);
   });
 
@@ -585,10 +577,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
   const [tables, setTables] = createSignal($request.tableList.response);
   const [response, setResponse] = createSignal($page.response);
   const [table, setTable] = createSignal($page.ui.$table.state);
-  // const [dataSource, setDataSource] = createSignal<TableCellCore[][]>([]);
-  // const [columns, setColumns] = createSignal<{ title: string; width: number }[]>([]);
-  const [filter, setFilter] = createSignal($page.ui.$filter.values);
-  const [left, setLeft] = createSignal(0);
+  const [filters, setFilters] = createSignal($page.ui.$filter.values);
 
   let $head: HTMLDivElement;
 
@@ -615,7 +604,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
     return setTable(v);
   });
   $page.ui.$filter.onChange((v) => {
-    setFilter(v);
+    setFilters(v);
   });
   $page.onResponseChange((v) => setResponse(v));
 
@@ -672,29 +661,39 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
         </div>
         <div class="relative flex flex-col flex-1 w-0 h-screen overflow-auto">
           <div class="flex items-center justify-between py-2 pr-8">
-            <div class="flex items-center space-x-4">
-              <div class="flex items-center space-x-2">
-                <For each={filter()}>
+            <div class="flex space-x-4">
+              <div class="filter-rows">
+                <For each={filters()}>
                   {(filter) => {
-                    if (filter.$input instanceof SelectCore) {
-                      return <Select store={filter.$input} />;
-                    }
-                    if (filter.$input instanceof InputCore) {
-                      return <Input store={filter.$input} />;
-                    }
-                    return null;
+                    return (
+                      <div class="filter__row flex items-center space-x-2">
+                        <For each={filter}>
+                          {(sub) => {
+                            if (sub.$input instanceof SelectCore) {
+                              return <Select store={sub.$input} />;
+                            }
+                            if (sub.$input instanceof InputCore) {
+                              return <Input store={sub.$input} />;
+                            }
+                            return null;
+                          }}
+                        </For>
+                      </div>
+                    );
                   }}
                 </For>
-                <Show when={filter().length}>
-                  <Button store={$page.ui.$filter.$submit}>查询</Button>
-                </Show>
               </div>
+              <Show when={filters().length}>
+                <div class="flex items-center self-end space-x-2">
+                  <Button store={$page.ui.$filter.$submit}>查询</Button>
+                  <Button store={$page.ui.$filter.$more}>增加条件</Button>
+                </div>
+              </Show>
             </div>
           </div>
           <div
             class="thead h-[54px] w-full overflow-hidden"
             style={{
-              // transform: "translateY(-42px)",
               height: "42px",
             }}
           >
@@ -703,7 +702,6 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
               style={{
                 width: `${table().width}px`,
                 height: "42px",
-                transform: `translateX(${-left()})`,
               }}
               onAnimationEnd={(event) => {
                 $head = event.currentTarget;
@@ -717,104 +715,61 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
             </div>
           </div>
           <div
-            class="__a overflow-y-auto flex-1 relative absolute top-0 bottom-0 h-screen "
+            class="__a tbody overflow-y-auto flex-1 relative absolute top-0 bottom-0 h-screen "
             onScroll={(event) => {
               const { scrollTop, scrollLeft, clientHeight, offsetHeight } = event.currentTarget;
               $head.style.transform = `translateX(-${scrollLeft}px)`;
-              setLeft(scrollLeft);
-              // console.log("", scrollTop, clientHeight, offsetHeight);
               if (scrollTop + clientHeight >= $page.ui.$table.height - 200) {
                 $page.loadMore();
               }
               $page.ui.$table.handleScroll({ scrollTop });
             }}
-            // class=" absolute top-[36px] bottom-0 left-0 right-0"
-            // onAnimationEnd={(event) => {
-            //   if ($page.init) {
-            //     return;
-            //   }
-            //   $page.init = true;
-            //   const { clientWidth } = event.currentTarget;
-            //   const autoColumns = $page.ui.$table.columns.filter((c) => c.width === 0);
-            //   const widthColumns = $page.ui.$table.columns.filter((c) => c.width !== 0);
-            //   const width = widthColumns.reduce((total, c) => c.width + total, 0);
-            //   const ava = (clientWidth - width) / autoColumns.length;
-            //   for (let i = 0; i < autoColumns.length; i += 1) {
-            //     const column = autoColumns[i];
-            //     column.stWidth(ava);
-            //   }
-            //   console.log($page.ui.$table.rows.length);
-            //   for (let i = 0; i < $page.ui.$table.rows.length; i += 1) {
-            //     const row = $page.ui.$table.rows[i];
-            //     for (let j = 0; j < row.cells.length; j += 1) {
-            //       const cell = row.cells[j];
-            //       const column = $page.ui.$table.columns[j];
-            //       cell.setWidth(column.width);
-            //     }
-            //   }
-            // }}
           >
             <div
-            // class="table __a overflow-auto absolute top-[82px] bottom-0 left-0 right-0"
+              style={{
+                position: "relative",
+                width: `${table().width}px`,
+                height: `${table().height}px`,
+              }}
             >
-              {/* <colgroup>
-                <For each={table().columns}>
-                  {(column) => {
-                    return <col width={column.width ? `${column.width}px` : "auto"}></col>;
-                  }}
-                </For>
-              </colgroup> */}
-
               <div
-                // class="tbody overflow-y-auto absolute bottom-0 left-0 right-4 bg-white"
-                class="tbody overflow-y-auto absolute top-0 bottom-0 left-0 right-4 bg-white"
                 style={{
-                  position: "relative",
-                  width: `${table().width}px`,
-                  height: `${table().height}px`,
-                  // "padding-top": "42px",
+                  transform: `translateY(${table().offsetTop}px)`,
                 }}
               >
-                <div
-                  style={{
-                    transform: `translateY(${table().offsetTop}px)`,
-                  }}
-                >
-                  <For each={table().visibleRows}>
-                    {(row) => {
-                      return (
-                        <div
-                          class="table__row"
-                          data-index={row.index}
-                          style={{
-                            width: `${table().width}px`,
-                            height: "42px",
+                <For each={table().visibleRows}>
+                  {(row) => {
+                    return (
+                      <div
+                        class="table__row"
+                        data-index={row.index}
+                        style={{
+                          width: `${table().width}px`,
+                          height: "42px",
+                        }}
+                      >
+                        <For each={row.cells}>
+                          {(cell, i) => {
+                            return (
+                              <TableCell
+                                store={cell}
+                                $column={$page.ui.$table.columns[i()]}
+                                $page={$page}
+                                hasCheck={cell.type === "index" && table().selectedRows.includes(cell.y)}
+                              />
+                            );
                           }}
-                        >
-                          <For each={row.cells}>
-                            {(cell, i) => {
-                              return (
-                                <TableCell
-                                  store={cell}
-                                  $column={$page.ui.$table.columns[i()]}
-                                  $page={$page}
-                                  hasCheck={cell.type === "index" && table().selectedRows.includes(cell.y)}
-                                />
-                              );
-                            }}
-                          </For>
-                        </div>
-                      );
-                    }}
-                  </For>
-                </div>
+                        </For>
+                      </div>
+                    );
+                  }}
+                </For>
               </div>
-              <Show when={response().noMore}>
-                <div class="py-4 text-center">没有更多数据了</div>
-              </Show>
             </div>
+            <Show when={response().noMore}>
+              <div class="py-4 text-center">没有更多数据了</div>
+            </Show>
           </div>
-          <div class="absolute left-1/2 bottom-4 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom"></div>
           <div class="absolute left-1/2 bottom-16 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom">
             <div class="space-x-2">
               <Show when={table().selectedRows.length}>
@@ -843,17 +798,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                         placeholder="输入宽度"
                         onBlur={(event) => {
                           const { value } = event.currentTarget;
-                          if (value === "") {
-                            return;
-                          }
-                          if (value.trim() === "") {
-                            return;
-                          }
-                          const num = Number(value);
-                          if (Number.isNaN(num)) {
-                            return;
-                          }
-                          $page.setWidth(column, num);
+                          $page.setWidth(column, value);
                         }}
                       />
                     </div>

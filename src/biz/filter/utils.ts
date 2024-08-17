@@ -11,99 +11,98 @@ import { FilterInput } from "./index";
  * 因为在构建 SQL 语句过程中，后面的选项或值，会影响前面已构建的内容
  * 但元对象可以随意修改。其实这就是 ORM，比如 prisma.findFirst({ where: { name: { contain: 'Friends' }} })
  */
-export function buildQuerySQL(table: TableCore, inputs: FilterInput[], tables: TableWithColumns[]) {
+export function buildQuerySQL(table: TableCore, inputs: FilterInput[][], tables: TableWithColumns[]) {
   const { name } = table;
   let query = `SELECT \`${name}\`.* FROM \`${name}\``;
-  // console.log("[BIZ]filter/utils - buildQuerySQL", inputs);
-  const last = inputs[inputs.length - 1];
-  if (!last) {
-    return query;
-  }
-  if (last.type !== "value") {
-    return query;
-  }
+  // const last = inputs[inputs.length - 1];
+  // if (!last) {
+  //   return query;
+  // }
+  // if (last.type !== "value") {
+  //   return query;
+  // }
 
-  let prevJoin: FilterInput | null = null;
-  let prevCondition: FilterInput | null = null;
-  let prevField: FilterInput | null = null;
+  // let prevJoin: FilterInput | null = null;
+  // let prevCondition: FilterInput | null = null;
+  // let prevField: FilterInput | null = null;
 
-  let i = 0;
-  while (i < inputs.length) {
-    const input = inputs[i];
-    (() => {
-      console.log(i, input.type, input.column?.name, input.column?.references);
-      if (input.type === "join") {
-        const column = input.column;
-        if (column) {
-          const referenceTableName = input.value;
-          const referencedTable = tables.find((t) => t.name === referenceTableName);
-          // console.log("find referenced table", referencedTable, referenceTableName,  tables);
-          if (referencedTable) {
-            const primaryColumn = referencedTable.columns.find((col) => col.is_primary_key);
-            console.log(
-              "find primary column in referenced table",
-              primaryColumn?.name,
-              primaryColumn?.references
-              // prevJoin
-            );
-            if (primaryColumn) {
-              if (prevJoin) {
-                query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${prevJoin.column?.references}\`.\`${column.name}\``;
-                prevJoin = input;
-                return;
-              }
-              query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${name}\`.\`${column.name}\``;
-              prevJoin = input;
-            }
-          }
-        }
-        return;
-      }
-      if (input.type === "field") {
-        prevField = input;
-        if (prevJoin) {
-          if (prevJoin.type === "join") {
-            query += ` WHERE \`${prevJoin.value}\`.\`${input.value}\``;
-          }
-          prevJoin = null;
+  // let i = 0;
+  // while (i < inputs.length) {
+  //   const input = inputs[i];
+  //   (() => {
+  //     console.log(i, input.type, input.column?.name, input.column?.references);
+  //     if (input.type === "join") {
+  //       const column = input.column;
+  //       if (column) {
+  //         const referenceTableName = input.value;
+  //         const referencedTable = tables.find((t) => t.name === referenceTableName);
+  //         // console.log("find referenced table", referencedTable, referenceTableName,  tables);
+  //         if (referencedTable) {
+  //           const primaryColumn = referencedTable.columns.find((col) => col.is_primary_key);
+  //           console.log(
+  //             "find primary column in referenced table",
+  //             primaryColumn?.name,
+  //             primaryColumn?.references
+  //             // prevJoin
+  //           );
+  //           if (primaryColumn) {
+  //             if (prevJoin) {
+  //               query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${prevJoin.column?.references}\`.\`${column.name}\``;
+  //               prevJoin = input;
+  //               return;
+  //             }
+  //             query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${name}\`.\`${column.name}\``;
+  //             prevJoin = input;
+  //           }
+  //         }
+  //       }
+  //       return;
+  //     }
+  //     if (input.type === "field") {
+  //       prevField = input;
+  //       if (prevJoin) {
+  //         if (prevJoin.type === "join") {
+  //           query += ` WHERE \`${prevJoin.value}\`.\`${input.value}\``;
+  //         }
+  //         prevJoin = null;
 
-          return;
-        }
-        query += ` WHERE \`${input.value}\``;
-        return;
-      }
-      if (input.type === "condition") {
-        prevCondition = input;
-        query += ` ${input.value}`;
-        return;
-      }
-      if (input.type === "value") {
-        const condition = prevCondition;
-        prevCondition = null;
-        const str = [];
-        if (prevField) {
-          if (prevField.column?.type === "text") {
-            str.push("'");
-          }
-        }
-        if (condition?.value === "LIKE") {
-          str.push(`%`);
-        }
-        str.push(input.value);
-        if (condition?.value === "LIKE") {
-          str.push(`%`);
-        }
-        if (prevField) {
-          if (prevField.column?.type === "text") {
-            str.push("'");
-          }
-        }
-        query += " " + str.join("");
-        prevField = null;
-      }
-    })();
-    i += 1;
-  }
+  //         return;
+  //       }
+  //       query += ` WHERE \`${input.value}\``;
+  //       return;
+  //     }
+  //     if (input.type === "condition") {
+  //       prevCondition = input;
+  //       query += ` ${input.value}`;
+  //       return;
+  //     }
+  //     if (input.type === "value") {
+  //       const condition = prevCondition;
+  //       prevCondition = null;
+  //       const str = [];
+  //       if (prevField) {
+  //         if (prevField.column?.type === "text") {
+  //           str.push("'");
+  //         }
+  //       }
+  //       if (condition?.value === "LIKE") {
+  //         str.push(`%`);
+  //       }
+  //       str.push(input.value);
+  //       if (condition?.value === "LIKE") {
+  //         str.push(`%`);
+  //       }
+  //       if (prevField) {
+  //         if (prevField.column?.type === "text") {
+  //           str.push("'");
+  //         }
+  //       }
+  //       query += " " + str.join("");
+  //       prevField = null;
+  //     }
+  //   })();
+  //   i += 1;
+  // }
 
   return query;
 }
