@@ -15,9 +15,9 @@ import { Button, Input, Popover } from "@/components/ui";
 import { TableRowCore } from "@/domains/ui/table/row";
 import { TableCellCore } from "@/domains/ui/table/cell";
 import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
-import { TableColumn, TableColumnCore } from "@/domains/ui/table/column";
+import { TableColumn, TableColumnCore, TableColumnType } from "@/domains/ui/table/column";
 import { DEFAULT_RESPONSE } from "@/domains/list/constants";
-import { TableFilterCore } from "@/biz/filter";
+import { PrefixTag, TableFilterCore } from "@/biz/filter";
 import { execQueryRaw, fetchTableList, fetchTableListProcess } from "@/biz/services";
 import { buildQuerySQL } from "@/biz/filter/utils";
 
@@ -39,7 +39,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
   };
   function buildColumns(columns: TableWithColumns["columns"], widths: Record<string, number>) {
     const prefix = new TableColumnCore({
-      type: "index",
+      type: TableColumnType.Index,
       name: "",
       x: 0,
       width: widths["index"] || 200,
@@ -428,17 +428,17 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
 }
 function ColumnTypeTag(props: { type: TableColumn["type"] }) {
   const { type } = props;
-  if (type === "integer") {
+  if (type === TableColumnType.Integer) {
     // return <CaseLower class="w-4 h-4" />;
     return <div>num</div>;
   }
-  if (type === "text") {
+  if (type === TableColumnType.Text) {
     return <Hash class="w-4 h-4" />;
   }
-  if (type === "datetime") {
+  if (type === TableColumnType.DateTime) {
     return <Calendar class="w-4 h-4" />;
   }
-  if (type === "index") {
+  if (type === TableColumnType.Index) {
     return null;
   }
   return null;
@@ -674,6 +674,13 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                             }
                             if (sub.$input instanceof InputCore) {
                               return <Input store={sub.$input} />;
+                            }
+                            if (sub.$input instanceof PrefixTag) {
+                              return (
+                                <div style={{ width: "56px", height: "23px", "background-color": "#fff" }}>
+                                  {sub.$input.value}
+                                </div>
+                              );
                             }
                             return null;
                           }}

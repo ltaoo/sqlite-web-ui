@@ -17,6 +17,11 @@ export type MutableRecord<U> = {
     data: U[SubType];
   };
 }[keyof U];
+export type MutableRecord2<U> = {
+  [SubType in keyof U]: {
+    type: SubType;
+  } & U[SubType];
+}[keyof U];
 
 export type BaseApiResp<T> = {
   code: number;

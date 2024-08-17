@@ -1,29 +1,8 @@
 import { BaseDomain, Handler } from "@/domains/base";
-import { Result } from "@/domains/result";
 
 import { TableCellCore } from "./cell";
 import { TableRowCore } from "./row";
 import { TableColumn, TableColumnCore } from "./column";
-
-function buildQueryRaw(body: {
-  table: string;
-  action: "delete";
-  oldValue?: string;
-  value?: string;
-  records: { id: number }[];
-}) {
-  const { table, action, records, oldValue, value } = body;
-  if (!table) {
-    return Result.Err("缺少 table 参数");
-  }
-  if (action === "delete") {
-    return Result.Ok(`DELETE FROM ${table} WHERE id in (${records.map((r) => r.id).join(", ")});`);
-  }
-  if (action === "update") {
-    return Result.Ok(`UPDATE ${table} SET `);
-  }
-  return Result.Err("不支持的 action");
-}
 
 export type TableWithColumns = {
   name: string;

@@ -50,10 +50,9 @@ const Input = (props: { store: InputCore<any>; prefix?: JSX.Element; class?: str
       </div>
       <InputPrimitive
         class={cn(
-          "flex items-center h-10 w-full rounded-md leading-none border border-slate-300 bg-transparent py-1 px-3 text-sm",
+          "flex items-center w-full px-3",
           "focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "dark:border-slate-700 dark:text-slate-50 dark:focus:ring-slate-400 dark:focus:ring-offset-slate-900",
           "placeholder:text-slate-400",
           prefix ? "pl-8" : "",
           props.class

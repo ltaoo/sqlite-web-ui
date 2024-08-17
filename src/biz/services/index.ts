@@ -1,8 +1,8 @@
 import { request } from "@/biz/requests";
 import { TmpRequestResp } from "@/domains/request/utils";
 import { Result } from "@/domains/result";
+import { TableColumnType } from "@/domains/ui/table/column";
 
-type TableColumnType = "text" | "integer" | "datetime" | "table";
 export function fetchTableList() {
   return request.post<
     {
@@ -10,7 +10,7 @@ export function fetchTableList() {
       columns: {
         index: number;
         name: string;
-        type: "text" | "integer" | "datetime" | "table";
+        type: TableColumnType;
         not_null: boolean;
         primary_key: boolean;
         foreign_key: boolean;

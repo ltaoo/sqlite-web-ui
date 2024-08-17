@@ -1,8 +1,15 @@
 import { BaseDomain, Handler } from "@/domains/base";
 
+export enum TableColumnType {
+  Index = "index",
+  DateTime = "datetime",
+  Text = "text",
+  Integer = "integer",
+  Table = "table",
+}
 export type TableColumn = {
   name: string;
-  type: "index" | "datetime" | "text" | "integer" | "table";
+  type: TableColumnType;
   width: number;
   references?: string;
   is_primary_key?: number;
@@ -36,7 +43,7 @@ type TableColumnCoreState = {
 
 export class TableColumnCore extends BaseDomain<TheTypesOfBaseEvents> {
   name: string;
-  type: TableColumn["type"] = "text";
+  type: TableColumn["type"] = TableColumnType.Text;
   references?: string;
   width = 0;
   x = 0;
