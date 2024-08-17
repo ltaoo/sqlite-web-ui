@@ -105,7 +105,7 @@ export class SelectCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     super(props);
 
     const { defaultValue, options = [], onMounted, onChange } = props;
-    console.log("[DOMAIN]ui/select/index - constructor", defaultValue);
+    // console.log("[DOMAIN]ui/select/index - constructor", defaultValue);
     this.options = options.map((opt) => {
       return opt;
     });

@@ -59,7 +59,7 @@ export function TableFilterCore(props: {
   const $submit = new ButtonCore({
     onClick() {
       if (props.onSearch) {
-        props.onSearch(values);
+        props.onSearch(_values);
       }
     },
   });
@@ -69,14 +69,14 @@ export function TableFilterCore(props: {
     const nextInputs: (SelectCore<any> | InputCore<any>)[] = (() => {
       let column = _table.columns.find((col) => col.name === v);
       let reference = _table.columns.find((col) => col.references === v);
-      const prev = values[index - 1];
-      //       if (prev) {
-      //         const table = _tables.find((t) => t.name === $input.column?.references);
-      //         if (table) {
-      //           column = table.columns.find((col) => col.name === v);
-      //           reference = table.columns.find((col) => col.references === v);
-      //         }
-      //       }
+      const prev = _values[0];
+      if (prev) {
+        const table = _tables.find((t) => t.name === prev.column?.references);
+        if (table) {
+          column = table.columns.find((col) => col.name === v);
+          reference = table.columns.find((col) => col.references === v);
+        }
+      }
       // 解决多表 JOIN 查询
       console.log("[BIZ]filter/index - handleValueChange", index, v, column, reference, _table.columns);
       console.log("[PAGE]Filter onChange", v, index, column);
@@ -103,38 +103,38 @@ export function TableFilterCore(props: {
               $sub.$input.setValue(table.columns[0].name);
             });
           }
-          values[index + 1] = $sub;
+          _values[index + 1] = $sub;
           return [];
         }
         return [];
       }
       if (column) {
         if (column.type === "datetime") {
-          values[index + 1] = new FilterInput({
+          _values[index + 1] = new FilterInput({
             type: "condition",
             $input: new SelectCore({
               defaultValue: "<",
               options: [
                 {
-                  label: "在这之前",
+                  label: "之前",
                   value: "<",
                 },
                 {
-                  label: "在这之后",
+                  label: "之后",
                   value: ">",
                 },
                 {
                   label: "等于",
                   value: "=",
                 },
-                {
-                  label: "在这之间",
-                  value: "BETWEEN",
-                },
+                // {
+                //   label: "在这之间",
+                //   value: "BETWEEN",
+                // },
               ],
             }),
           });
-          values[index + 2] = new FilterInput({
+          _values[index + 2] = new FilterInput({
             type: "value",
             $input: new InputCore({
               defaultValue: new Date(),
@@ -147,7 +147,7 @@ export function TableFilterCore(props: {
           return [];
         }
         if (column.type === "integer") {
-          values[index + 1] = new FilterInput({
+          _values[index + 1] = new FilterInput({
             type: "condition",
             $input: new SelectCore({
               defaultValue: "<",
@@ -164,14 +164,21 @@ export function TableFilterCore(props: {
                   label: "等于",
                   value: "=",
                 },
-                {
-                  label: "之间",
-                  value: "BETWEEN",
-                },
+                // 功能和 OR 子句一样。value 用,分割。它的值，可以是 SELECT 子句，等于说，如果选了这个 condition，value 要变成支持筛选的 table！
+		// 但是如果用 SELECT 子句，为什么不用 JOIN 呢？因为 IN 性能更好，如果是 name = '1' OR name = '2'，用 name IN (1, 2) 性能更好
+                // {
+                //   label: "IN",
+                //   value: "IN",
+                // },
+                // BETWEEN 5 AND 10;
+                // {
+                //   label: "之间",
+                //   value: "BETWEEN",
+                // },
               ],
             }),
           });
-          values[index + 2] = new FilterInput({
+          _values[index + 2] = new FilterInput({
             type: "value",
             $input: new InputCore({
               defaultValue: 0,
@@ -183,7 +190,7 @@ export function TableFilterCore(props: {
           return [];
         }
       }
-      values[index + 1] = new FilterInput({
+      _values[index + 1] = new FilterInput({
         type: "condition",
         $input: new SelectCore({
           defaultValue: "=",
@@ -204,10 +211,15 @@ export function TableFilterCore(props: {
               label: "不包含",
               value: "NOT LIKE",
             },
+            // 这个应该判断字段是否支持为空
+            //     {
+            //       label: "IS NULL",
+            //       value: "IS NULL",
+            //     },
           ],
         }),
       });
-      values[index + 2] = new FilterInput({
+      _values[index + 2] = new FilterInput({
         type: "value",
         $input: new InputCore({
           defaultValue: "",
@@ -243,7 +255,7 @@ export function TableFilterCore(props: {
     //     values[2] = input1.value;
     //     builder[index + 2] = input1;
     // 为什么 values 会有 undefined 元素？
-    emitter.emit(Events.Change, [...values]);
+    emitter.emit(Events.Change, [..._values]);
   }
   function buildOptions(columns: TableColumn[]) {
     const options: { label: string; value: string }[] = [];
@@ -251,6 +263,9 @@ export function TableFilterCore(props: {
       const column = columns[j];
       const { name, type, references } = column;
       (() => {
+        if (type === "index") {
+          return;
+        }
         const base = {
           label: name,
           value: name,
@@ -275,7 +290,7 @@ export function TableFilterCore(props: {
 
   // const values: ReturnType<typeof FilterField>[] = [];
 
-  let values: FilterInput[] = [];
+  let _values: FilterInput[] = [];
   //   const baseSelect = ;
   //   let values: (string | number | null)[] = [];
   //   let builder: (SelectCore<string> | InputCore<string>)[] = [baseSelect];
@@ -284,13 +299,14 @@ export function TableFilterCore(props: {
     Change,
   }
   type TheTypesOfEvents = {
-    [Events.Change]: typeof values;
+    [Events.Change]: typeof _values;
   };
 
   const emitter = base<TheTypesOfEvents>();
   return {
-    //     builder,
-    values,
+    get values() {
+      return _values;
+    },
     $submit,
     setTable(table: TableWithColumns) {
       _table = table;
@@ -307,13 +323,13 @@ export function TableFilterCore(props: {
           onChange(v) {
             const column = _table.columns.find((c) => c.name === v);
             first.column = column || null;
-            values = values.slice(0, 1);
+            _values = _values.slice(0, 1);
             handleValueChange(v, 0, first);
           },
         }),
       });
-      values = [first];
-      emitter.emit(Events.Change, [...values]);
+      _values = [first];
+      emitter.emit(Events.Change, [..._values]);
     },
     onChange(handler: Handler<TheTypesOfEvents[Events.Change]>) {
       emitter.on(Events.Change, handler);

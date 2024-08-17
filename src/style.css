@@ -25,7 +25,12 @@ body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
-
+.table__row {
+  background-color: #fff;
+}
+.table__row:hover {
+  background-color: #f8f9fa;
+}
 .__a {
   animation: __a 0.1s;
 }

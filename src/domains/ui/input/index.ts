@@ -118,7 +118,7 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     console.log("请在 connect 中实现该方法");
   }
   handleChange(event: unknown) {
-    console.log("[DOMAIN]ui/input - handleChange", event);
+    // console.log("[DOMAIN]ui/input - handleChange", event);
     if (this.type === "file") {
       const { target } = event as { target: { files: T } };
       const { files: v } = target;

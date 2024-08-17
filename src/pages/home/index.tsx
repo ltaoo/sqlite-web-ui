@@ -3,6 +3,7 @@
  */
 import { createSignal, For, onMount, Show } from "solid-js";
 import { Calendar, Check, Hash, Settings } from "lucide-solid";
+import dayjs from "dayjs";
 
 import { ViewComponent, ViewComponentProps } from "@/store/types";
 import { base, Handler } from "@/domains/base";
@@ -39,7 +40,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
   function buildColumns(columns: TableWithColumns["columns"], widths: Record<string, number>) {
     const prefix = new TableColumnCore({
       type: "index",
-      name: "index",
+      name: "",
       x: 0,
       width: widths["index"] || 200,
       is_primary_key: 0,
@@ -90,7 +91,15 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
           return new TableCellCore({
             x: i + 1,
             y,
-            value: cell as string,
+            value: (() => {
+              if (column.type === "datetime") {
+                if (cell === null) {
+                  return cell;
+                }
+                return dayjs(cell).format("YYYY-MM-DD hh:mm:ss");
+              }
+              return cell as string;
+            })(),
             width: column.width,
             $table,
             onSelect(ins) {
@@ -467,9 +476,10 @@ function TableColumnCell(props: { store: TableColumnCore }) {
 function TableCell(props: {
   store: TableCellCore;
   $page: ReturnType<typeof SqliteDatabasePageCore>;
+  $column: TableColumnCore;
   hasCheck?: boolean;
 }) {
-  const { store, $page } = props;
+  const { store, $column, $page } = props;
 
   let timer: NodeJS.Timeout | null = null;
   const CLICK_DELAY = 250;
@@ -488,7 +498,15 @@ function TableCell(props: {
         "user-select": "none",
         "border-color": state().selected ? "blue" : "#ccc",
         width: `${state().width}px`,
-        "background-color": state().waitUpdate ? "yellow" : "unset",
+        "background-color": (() => {
+          if (state().waitUpdate) {
+            return "yellow";
+          }
+          if ($column.type === "index") {
+            return "#f3f3f3";
+          }
+          return "unset";
+        })(),
       }}
       data-x={store.x}
       data-y={store.y}
@@ -546,6 +564,9 @@ function TableCell(props: {
           />
         }
       >
+        {/* <Show when={$column.type === 'datetime'}>
+
+        </Show> */}
         {state().value as string}
         <Show when={props.hasCheck}>
           <Check class="absolute right-0 top-1/2 w-4 h-4 transform -translate-y-1/2" />
@@ -678,7 +699,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
             }}
           >
             <div
-              class="__a tr"
+              class="__a tr "
               style={{
                 width: `${table().width}px`,
                 height: "42px",
@@ -696,7 +717,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
             </div>
           </div>
           <div
-            class="__a overflow-y-auto flex-1 relative absolute top-0 bottom-0 h-screen"
+            class="__a overflow-y-auto flex-1 relative absolute top-0 bottom-0 h-screen "
             onScroll={(event) => {
               const { scrollTop, scrollLeft, clientHeight, offsetHeight } = event.currentTarget;
               $head.style.transform = `translateX(-${scrollLeft}px)`;
@@ -763,7 +784,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                     {(row) => {
                       return (
                         <div
-                          class=""
+                          class="table__row"
                           data-index={row.index}
                           style={{
                             width: `${table().width}px`,
@@ -771,12 +792,13 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                           }}
                         >
                           <For each={row.cells}>
-                            {(col, i) => {
+                            {(cell, i) => {
                               return (
                                 <TableCell
-                                  store={col}
+                                  store={cell}
+                                  $column={$page.ui.$table.columns[i()]}
                                   $page={$page}
-                                  hasCheck={col.type === "index" && table().selectedRows.includes(col.y)}
+                                  hasCheck={cell.type === "index" && table().selectedRows.includes(cell.y)}
                                 />
                               );
                             }}
@@ -792,8 +814,8 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
               </Show>
             </div>
           </div>
-
-          <div class="absolute left-1/2 bottom-12 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom">
+          <div class="absolute left-1/2 bottom-4 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom"></div>
+          <div class="absolute left-1/2 bottom-16 bg-white rounded-md -translate-x-1/2 animate animate-in slide-from-bottom">
             <div class="space-x-2">
               <Show when={table().selectedRows.length}>
                 <Button store={$page.ui.$delete}>删除{table().selectedRows.length}条记录</Button>
