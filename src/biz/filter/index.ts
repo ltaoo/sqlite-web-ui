@@ -1,7 +1,8 @@
 import { base, BaseDomain, Handler } from "@/domains/base";
 import { SelectCore, InputCore, ButtonCore } from "@/domains/ui";
 import { TableColumn, TableColumnCore } from "@/domains/ui/table/column";
-import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
+import { TableWithColumns } from "@/domains/ui/table/table";
+
 import { buildQuerySQL } from "./utils";
 
 enum Events {
@@ -42,18 +43,7 @@ export class FilterInput extends BaseDomain<TheTypesOfBaseEvents> {
   get value() {
     return this.$input.value;
   }
-  //   setValue(v: string | number | null) {
-  //     this.$input = v;
-  //   }
 }
-// function FilterInput(props: { type: "field" | "condition" | "value"; column?: TableColumn }) {
-//   const { type, column } = props;
-
-//   return {
-//     type,
-//     column,
-//   };
-// }
 
 export function TableFilterCore(props: {
   table: TableWithColumns;
@@ -159,11 +149,6 @@ export function TableFilterCore(props: {
               },
             }),
           });
-          // if (table.columns[0]) {
-          //   $sub.$input.onMounted(() => {
-          //     $sub.$input.setValue(table.columns[0].name);
-          //   });
-          // }
           _values[x] = [
             ..._values[x].slice(0, y + 1),
             // ...

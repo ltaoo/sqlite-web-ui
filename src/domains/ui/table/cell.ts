@@ -95,14 +95,16 @@ export class TableCellCore extends BaseDomain<TheTypesOfBaseEvents> {
     this.emit(Events.Select, this);
     this.emit(Events.Change, { ...this.state });
   }
-  unselect() {
+  unselect(options: Partial<{ silence: boolean }> = {}) {
     if (this.selected === false) {
       return;
     }
     this.selected = false;
-    this.emit(Events.Change, { ...this.state });
+    if (!options.silence) {
+      this.emit(Events.Change, { ...this.state });
+    }
   }
-  edit() {
+  edit(options: Partial<{ silence: boolean }> = {}) {
     if (this.disabled) {
       return;
     }
@@ -110,14 +112,18 @@ export class TableCellCore extends BaseDomain<TheTypesOfBaseEvents> {
       return;
     }
     this.editing = true;
-    this.emit(Events.Change, { ...this.state });
+    if (!options.silence) {
+      this.emit(Events.Change, { ...this.state });
+    }
   }
-  unedit() {
+  unedit(options: Partial<{ silence: boolean }> = {}) {
     if (this.editing === false) {
       return;
     }
     this.editing = false;
-    this.emit(Events.Change, { ...this.state });
+    if (!options.silence) {
+      this.emit(Events.Change, { ...this.state });
+    }
   }
   updateValue() {
     if (this.value === this.inputValue) {
@@ -126,27 +132,33 @@ export class TableCellCore extends BaseDomain<TheTypesOfBaseEvents> {
     this.tmpValue = this.value;
     this.value = this.inputValue;
     this.waitUpdate = true;
+    this.unedit({ silence: true });
+    this.unselect({ silence: true });
     this.emit(Events.Update, { x: this.x, y: this.y, value: this.inputValue });
     this.emit(Events.Change, { ...this.state });
   }
   completeUpdate() {
     this.waitUpdate = false;
     this.tmpValue = this.value;
-    this.unedit();
-    this.unselect();
+    this.unedit({ silence: true });
+    this.unselect({ silence: true });
     this.emit(Events.Change, { ...this.state });
   }
   cancelUpdate() {
+    console.log("[COMPONENT]table/index - cancelUpdate", this.tmpValue, this.value, this.inputValue);
     this.value = this.tmpValue;
+    this.inputValue = this.value;
     this.waitUpdate = false;
-    this.unedit();
-    this.unselect();
+    this.unedit({ silence: true });
+    this.unselect({ silence: true });
     this.emit(Events.Change, { ...this.state });
   }
-  setWidth(width: number) {
+  setWidth(width: number, options: Partial<{ silence: boolean }> = {}) {
     this.width = width;
     console.log("set width", width);
-    return this.emit(Events.Change, { ...this.state });
+    if (!options.silence) {
+      this.emit(Events.Change, { ...this.state });
+    }
   }
 
   onChange(handler: Handler<TheTypesOfBaseEvents[Events.Change]>) {

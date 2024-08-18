@@ -162,6 +162,7 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
         const column = input.column;
         if (input.type === "field" && column) {
           if (column.references) {
+            // @ts-ignore
             query = {
               [column.references]: query,
             };
@@ -340,6 +341,7 @@ function buildSQLFromORM(table: TableWithColumns, where: TableQuery, tables: Tab
               });
             }
           }
+          // @ts-ignore
           result += queryToString(value, table);
           return;
         }
