@@ -28,7 +28,7 @@ export function TablePanelCore(props: { table: TableWithColumns; tables: TableWi
   let _curCell: TableCellCore | null = null;
   let _rows: TableCellCore[][] = [];
   let _head: { style: { transform: string } } | null = null;
-  let _keycodes = {
+  let _keycodes: Record<string, boolean> = {
     ShiftLeft: false,
   };
   const response = {
@@ -78,7 +78,7 @@ export function TablePanelCore(props: { table: TableWithColumns; tables: TableWi
       return c;
     });
   }
-  function renderTable(dataSource: string[][], columns: TableColumn[], response: Response<any>) {
+  function renderTable(dataSource: string[][], columns: TableColumnCore[], response: Response<any>) {
     //     console.log("render table", columns);
     return dataSource.map((row, index) => {
       const y = index + (response.page - 1) * response.pageSize;
@@ -562,7 +562,12 @@ function TableCell(props: {
   return (
     <div
       class="__a inline-block relative p-2 h-full overflow-hidden truncate"
-      tabindex={store.x + store.y * $page.columns.length}
+      tabindex={(() => {
+        if ($column.type === TableColumnType.Index) {
+          return undefined;
+        }
+        return store.x + store.y * $page.columns.length;
+      })()}
       style={{
         border: "1px solid #ccc",
         "user-select": "none",
@@ -612,9 +617,9 @@ function TableCell(props: {
           }, CLICK_DELAY);
         }
       }}
-//       onBlur={() => {
-//         store.unselect();
-//       }}
+      //       onBlur={() => {
+      //         store.unselect();
+      //       }}
     >
       <Show
         when={!state().editing}

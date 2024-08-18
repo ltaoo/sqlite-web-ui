@@ -1,30 +1,19 @@
 /**
  * @file 数据库管理
  */
-import { createSignal, For, Match, onMount, Show, Switch } from "solid-js";
-import { Calendar, Check, Hash, Plus, Settings, X } from "lucide-solid";
-import dayjs from "dayjs";
+import { createSignal, For, onMount } from "solid-js";
+import { Plus, X } from "lucide-solid";
 
-import { ViewComponent, ViewComponentProps } from "@/store/types";
-import { base, Handler } from "@/domains/base";
+import { ViewComponent } from "@/store/types";
 import { RequestCore } from "@/domains/request";
-import { Response } from "@/domains/list/typing";
-import { Select } from "@/components/ui/select";
-import { ButtonCore, DialogCore, InputCore, PopoverCore, SelectCore } from "@/domains/ui";
-import { Button, Dialog, FreeInput, Input, Popover, PurePopover } from "@/components/ui";
-import { TableRowCore } from "@/domains/ui/table/row";
-import { TableCellCore } from "@/domains/ui/table/cell";
-import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
-import { TableColumn, TableColumnCore, TableColumnType } from "@/domains/ui/table/column";
-import { DEFAULT_RESPONSE } from "@/domains/list/constants";
-import { PrefixTag, TableFilterCore } from "@/biz/filter";
-import { execQueryRaw, fetchTableList, fetchTableListProcess } from "@/biz/services";
-import { buildQuerySQL } from "@/biz/filter/utils";
-import { Result } from "@/domains/result";
+import { DialogCore, PopoverCore } from "@/domains/ui";
+import { Dialog } from "@/components/ui";
+import { TableWithColumns } from "@/domains/ui/table/table";
+import { fetchTableList, fetchTableListProcess } from "@/biz/services";
 import { TablePanel, TablePanelCore } from "./table";
 
 export const SqliteDatabasePage: ViewComponent = (props) => {
-  const { storage } = props;
+  const { app, storage } = props;
   // const $request = $page.$request;
   const $request = {
     tableList: new RequestCore(fetchTableList, {
@@ -103,7 +92,7 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
     if (v === null) {
       return;
     }
-    console.log("[PAGE]home/index - the table list is", v);
+    // console.log("[PAGE]home/index - the table list is", v);
     // const prev = storage.get("column_widths", {});
     // const widths = prev[$page.ui.$table.name];
     // if (widths) {
@@ -123,17 +112,37 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
   });
 
   onMount(() => {
-    // document.addEventListener("keydown", (event) => {
-    //   if (event.code === "ShiftLeft") {
-    //     $page.keycodes.ShiftLeft = true;
-    //   }
-    // });
-    // document.addEventListener("keyup", (event) => {
-    //   if (event.code === "ShiftLeft") {
-    //     $page.keycodes.ShiftLeft = false;
-    //   }
-    // });
-    // $page.ready();
+    const keycodes: Record<string, boolean> = {};
+    document.addEventListener("keydown", (event) => {
+      // console.log(event.code);
+      keycodes[event.code] = true;
+      (() => {
+        if (event.code === "KeyC" && (keycodes.ControlLeft || keycodes.ControlRight)) {
+          const panel = cur();
+          if (panel === null) {
+            return;
+          }
+          const curCell = panel.ui.$table.cells.find((cell) => cell.selected);
+          if (curCell) {
+            app.copy(curCell.value);
+            app.tip({
+              text: ["已复制到剪贴板"],
+            });
+          }
+        }
+      })();
+      for (let i = 0; i < panels().length; i += 1) {
+        const panel = panels()[i];
+        panel.keycodes[event.code] = true;
+      }
+    });
+    document.addEventListener("keyup", (event) => {
+      keycodes[event.code] = false;
+      for (let i = 0; i < panels().length; i += 1) {
+        const panel = panels()[i];
+        panel.keycodes[event.code] = false;
+      }
+    });
     $request.tableList.run();
   });
 

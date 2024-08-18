@@ -373,6 +373,7 @@ export function TableFilterCore(props: {
       emitter.emit(Events.Change, [..._values]);
     },
     buildSQL(table: TableWithColumns, tables: TableWithColumns[], response: { pageSize: number; page: number }) {
+      // console.log("[BIZ]filter/index - buildSQL", table, tables, _values);
       const partSQL = buildQuerySQL(table, _values, tables);
       const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
       const sql = partSQL + pagination + ";";

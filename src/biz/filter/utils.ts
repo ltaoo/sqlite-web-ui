@@ -77,14 +77,21 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
 
     while (i < inputs.length) {
       const input = inputs[i];
+      // console.log(input.type, input.value);
       (() => {
         if (input.type === "value") {
           const condition = inputs[i + 1];
           const field = inputs[i + 2];
           const column = field.column;
           if (field.type === "field" && column) {
+            const kkk = (() => {
+              if (column.references && column.references === input.value) {
+                return column.references;
+              }
+              return column.name;
+            })();
             query = {
-              [column.references || column.name]: ((): StringFilter | IntFilter => {
+              [kkk]: ((): StringFilter | IntFilter => {
                 if (column.type === TableColumnType.Text) {
                   if (condition.value === "LIKE") {
                     return {
@@ -161,7 +168,9 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
         }
         const column = input.column;
         if (input.type === "field" && column) {
-          if (column.references) {
+          // 基本不会走到这里来
+          // console.log(column.references, input.value);
+          if (column.references && column.references === input.value) {
             // @ts-ignore
             query = {
               [column.references]: query,
@@ -378,6 +387,7 @@ export function buildQuerySQL(table: TableWithColumns, inputs: FilterInput[][], 
   const { name } = table;
   let query = `SELECT \`${name}\`.* FROM \`${name}\``;
   const orm = buildORMObject(table, inputs, tables);
+  console.log(orm);
   const where = buildSQLFromORM(table, orm.where, tables);
   return query + where;
 }

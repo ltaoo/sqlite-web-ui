@@ -55,13 +55,13 @@ export function fetchTableListProcess(r: TmpRequestResp<typeof fetchTableList>) 
           columns.push(
             ...[
               base,
-        //       {
-        //         name: references,
-        //         type: "table" as TableColumnType,
-        //         not_null: base.not_null,
-        //         is_primary_key: 0,
-        //         width: 200,
-        //       },
+              //       {
+              //         name: references,
+              //         type: "table" as TableColumnType,
+              //         not_null: base.not_null,
+              //         is_primary_key: 0,
+              //         width: 200,
+              //       },
             ]
           );
           return;
@@ -74,7 +74,11 @@ export function fetchTableListProcess(r: TmpRequestResp<typeof fetchTableList>) 
       columns,
     });
   }
-  return Result.Ok(data);
+  return Result.Ok(
+    data.sort((a, b) => {
+      return a.name.toLowerCase().charCodeAt(0) - b.name.toLowerCase().charCodeAt(0);
+    })
+  );
 }
 export function execQueryRaw(params: { query: string }) {
   return request.post<null | string[][]>("/api/v1/database/exec", params);
