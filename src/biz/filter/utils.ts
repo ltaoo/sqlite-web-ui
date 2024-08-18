@@ -1,5 +1,6 @@
+import dayjs from "dayjs";
+
 import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
-import { MutableRecord2 } from "@/types";
 import { TableColumn, TableColumnType } from "@/domains/ui/table/column";
 
 import { FilterInput } from "./index";
@@ -49,20 +50,6 @@ type NestedIntFilter = {
 type IntFilter = NestedIntFilter & {
   not?: NestedIntFilter;
 };
-// type ColumnCondition = MutableRecord2<{
-//   [TableColumnType.Text]: {
-//     contain?: string;
-//     equal?: string;
-//   };
-//   [TableColumnType.Integer]: {
-//     equal?: string;
-//   };
-//   [TableColumnType.DateTime]: {
-//     equal?: string;
-//   };
-//   [TableColumnType.Index]: {};
-//   [TableColumnType.Table]: {};
-// }>;
 type TableField = string;
 type ReferenceTableQuery = {
   AND?: ReferenceTableQuery[];
@@ -72,36 +59,18 @@ type TableQuery = {
   AND?: (TableQuery | ReferenceTableQuery)[];
   OR?: (TableQuery | ReferenceTableQuery)[];
 } & Record<TableField, StringFilter | IntFilter | ReferenceTableQuery>;
-// type TableQuery = Record<TableField, StringFilter | IntFilter | ReferenceTableQuery>;
-// type TableQueryWithAndOr = {
-//   AND?: TableQuery[];
-//   OR?: TableQuery[];
-// };
 export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], tables: TableWithColumns[]) {
   const { name } = table;
   const result: {
     name: string;
-    // joins: Record<
-    //   string,
-    //   {
-    //     name: string;
-    //     condition: { field: string; value: string }[];
-    //   }
-    // >;
     where: TableQuery;
   } = {
     name,
-    // joins: {},
     where: {},
   };
   const queries: TableQuery[] = [];
   for (let j = 0; j < rows.length; j += 1) {
-    const inputs = rows[j].reverse();
-
-    let prevJoin: FilterInput | null = null;
-    let prevCondition: FilterInput | null = null;
-    let prevField: FilterInput | null = null;
-    // const prefix = inputs[0];
+    const inputs = [...rows[j]].reverse();
 
     let i = 0;
     let query: TableQuery = {};
@@ -127,6 +96,13 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
                       equals: input.value,
                     };
                   }
+                  if (condition.value === "!=") {
+                    return {
+                      not: {
+                        equals: input.value,
+                      },
+                    };
+                  }
                 }
                 if (column.type === TableColumnType.Integer) {
                   if (condition.value === ">") {
@@ -144,6 +120,37 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
                       lt: input.value,
                     };
                   }
+                  if (condition.value === "!=") {
+                    return {
+                      not: {
+                        equals: input.value,
+                      },
+                    };
+                  }
+                }
+                if (column.type === TableColumnType.DateTime) {
+                  if (condition.value === ">") {
+                    return {
+                      gt: input.value,
+                    };
+                  }
+                  if (condition.value === "=") {
+                    return {
+                      equals: input.value,
+                    };
+                  }
+                  if (condition.value === "<") {
+                    return {
+                      lt: input.value,
+                    };
+                  }
+                  if (condition.value === "!=") {
+                    return {
+                      not: {
+                        equals: input.value,
+                      },
+                    };
+                  }
                 }
                 return {};
               })(),
@@ -154,17 +161,11 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
         }
         const column = input.column;
         if (input.type === "field" && column) {
-          // 到这里，就真的可能是联表查询了。因为在处理了 value、condition、field 三个后，还有 field
-          const field = input;
           if (column.references) {
             query = {
               [column.references]: query,
             };
           }
-          // const referencedTable = tables.find((t) => t.name === column.references);
-          // if (referencedTable) {
-          // }
-          // return;
         }
         if (input.type === "multiple") {
           const prevQuery = queries.shift();
@@ -184,7 +185,6 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
           }
         }
       })();
-      // console.log(query);
       i += 1;
     }
     queries.push(query);
@@ -194,11 +194,7 @@ export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], t
   }
   return result;
 }
-function buildSQLFromORM(
-  table: TableWithColumns,
-  where: TableQuery,
-  tables: { name: string; columns: TableColumn[] }[]
-) {
+function buildSQLFromORM(table: TableWithColumns, where: TableQuery, tables: TableWithColumns[]) {
   const joins: {
     table: string;
     primary_key: string;
@@ -208,25 +204,44 @@ function buildSQLFromORM(
     };
   }[] = [];
 
-  function buildCondition(key: string, condition: StringFilter | IntFilter, reference: TableWithColumns) {
+  function buildCondition(
+    key: string,
+    condition: StringFilter | IntFilter,
+    reference: TableWithColumns,
+    extra: Partial<{ not: boolean }> = {}
+  ) {
     // console.warn("[BIZ]filter/utils - buildCondition", key, condition, reference);
     const column = reference.columns.find((col) => col.name === key);
     if (!column) {
       console.warn("unexpected", key, condition, reference);
       return "";
     }
-    let part = `\`${reference.name}\`.`;
+    /**
+     * 如果是 {
+     *  not: { equals: 'hello' }
+     * }
+     * 由于调用了两次 buildCondition 导致 reference.name 会重复出现
+     */
+    let part = extra.not ? "" : `\`${reference.name}\`.`;
     const operator = Object.keys(condition)[0];
     // @ts-ignore
     const value = condition[operator];
     if (value === undefined) {
       return part;
     }
-    const v = column.type === TableColumnType.Text ? `'${value}'` : value;
+    const v = (() => {
+      if (column.type === TableColumnType.Text) {
+        return `'${value}'`;
+      }
+      if (column.type === TableColumnType.DateTime) {
+        return `'${dayjs(value).format(column.options?.format || "YYYY-MM-DD HH:mm:ss")}'`;
+      }
+      return value;
+    })();
     // console.log(key, operator, v);
     (() => {
       if (operator === "equals") {
-        part += `\`${key}\` = ${v}`;
+        part += `\`${key}\` ${extra.not ? "!=" : "="} ${v}`;
         return;
       }
       if (operator === "in") {
@@ -240,12 +255,15 @@ function buildSQLFromORM(
         return;
       }
       if (operator === "lte") {
+        part += `\`${key}\` <= ${v}`;
         return;
       }
       if (operator === "gt") {
+        part += `\`${key}\` > ${v}`;
         return;
       }
       if (operator === "gte") {
+        part += `\`${key}\` >= ${v}`;
         return;
       }
       if (operator === "endsWith") {
@@ -261,6 +279,9 @@ function buildSQLFromORM(
         return;
       }
       if (operator === "not") {
+        if (typeof value === "object") {
+          part += buildCondition(key, value, reference, { not: true });
+        }
         return;
       }
     })();

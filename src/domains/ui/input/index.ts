@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+
 import { BaseDomain, Handler } from "@/domains/base";
 
 enum Events {
@@ -9,7 +11,7 @@ enum Events {
   Enter,
 }
 type TheTypesOfEvents<T> = {
-  [Events.StateChange]: InputState<T>;
+  [Events.StateChange]: InputCoreState<T>;
   [Events.Mounted]: void;
   [Events.Change]: T;
   [Events.Blur]: T;
@@ -17,11 +19,12 @@ type TheTypesOfEvents<T> = {
   [Events.Focus]: void;
 };
 
-type InputProps<T> = {
+export type InputCoreProps<T> = {
   /** 字段键 */
   name?: string;
   disabled?: boolean;
   defaultValue: T;
+  value?: T;
   placeholder?: string;
   type?: string;
   onChange?: (v: T) => void;
@@ -29,7 +32,7 @@ type InputProps<T> = {
   onEnter?: (v: T) => void;
   onBlur?: (v: T) => void;
 };
-type InputState<T> = {
+type InputCoreState<T> = {
   value: T;
   placeholder: string;
   disabled: boolean;
@@ -57,12 +60,13 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     };
   }
 
-  constructor(options: Partial<{ _name: string }> & InputProps<T>) {
+  constructor(options: Partial<{ _name: string }> & InputCoreProps<T>) {
     super(options);
 
     const {
       _name: name,
       defaultValue,
+      value,
       placeholder = "请输入",
       type = "string",
       disabled = false,
@@ -78,7 +82,7 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     this.type = type;
     this.disabled = disabled;
     this.defaultValue = defaultValue;
-    this.value = defaultValue;
+    this.value = value !== undefined ? value : defaultValue;
     this.valueUsed = defaultValue;
     if (onChange) {
       this.onChange(onChange);
@@ -115,7 +119,7 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
     this.emit(Events.StateChange, { ...this.state });
   }
   focus() {
-    console.log("请在 connect 中实现该方法");
+    console.log("请在 connect 中实现 focus 方法");
   }
   handleChange(event: unknown) {
     // console.log("[DOMAIN]ui/input - handleChange", event);
@@ -123,6 +127,12 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
       const { target } = event as { target: { files: T } };
       const { files: v } = target;
       this.setValue(v);
+      return;
+    }
+    if (this.type === "datetime") {
+      const { target } = event as { target: { value: T } };
+      const v = dayjs(target.value as string).format("YYYY-MM-DD HH:mm:ss");
+      this.setValue(v as unknown as T);
       return;
     }
     const { target } = event as { target: { value: T } };
@@ -176,10 +186,10 @@ export class InputCore<T> extends BaseDomain<TheTypesOfEvents<T>> {
 
 type InputInListProps<T = unknown> = {
   onChange?: (record: T) => void;
-} & InputProps<T>;
+} & InputCoreProps<T>;
 type TheTypesInListOfEvents<K extends string, T> = {
   [Events.Change]: [K, T];
-  [Events.StateChange]: InputProps<T>;
+  [Events.StateChange]: InputCoreProps<T>;
 };
 
 export class InputInListCore<K extends string, T> extends BaseDomain<TheTypesInListOfEvents<K, T>> {

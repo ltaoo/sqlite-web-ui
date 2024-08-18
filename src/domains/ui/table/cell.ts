@@ -132,16 +132,20 @@ export class TableCellCore extends BaseDomain<TheTypesOfBaseEvents> {
   completeUpdate() {
     this.waitUpdate = false;
     this.tmpValue = this.value;
+    this.unedit();
+    this.unselect();
     this.emit(Events.Change, { ...this.state });
   }
   cancelUpdate() {
     this.value = this.tmpValue;
     this.waitUpdate = false;
+    this.unedit();
+    this.unselect();
     this.emit(Events.Change, { ...this.state });
   }
   setWidth(width: number) {
     this.width = width;
-    console.log('set width', width);
+    console.log("set width", width);
     return this.emit(Events.Change, { ...this.state });
   }
 

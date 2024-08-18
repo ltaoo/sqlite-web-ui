@@ -610,9 +610,358 @@ describe("build orm object", () => {
       },
     });
   });
+
+  it("test2", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Friends",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "address",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "address",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Hangzhou",
+          }),
+        }),
+      ],
+    ];
+    const orm = buildORMObject(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      [
+        {
+          name: "grades",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "school_id",
+              type: TableColumnType.Integer,
+              references: "schools",
+              width: 0,
+            },
+          ],
+        },
+        {
+          name: "schools",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "name",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+            {
+              name: "address",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+          ],
+        },
+      ]
+    );
+    expect(orm).toStrictEqual({
+      name: "students",
+      where: {
+        AND: [
+          {
+            grades: {
+              schools: {
+                name: {
+                  contains: "Friends",
+                },
+              },
+            },
+          },
+          {
+            grades: {
+              schools: {
+                address: {
+                  contains: "Hangzhou",
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("multiple AND", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "ming",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "age",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "age",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: ">",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 10,
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "height",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "height",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: ">",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 145,
+          }),
+        }),
+      ],
+    ];
+    const orm = buildORMObject(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          {
+            name: "age",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          {
+            name: "height",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          {
+            name: "hobby",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      []
+    );
+    expect(orm).toStrictEqual({
+      name: "students",
+      where: {
+        AND: [
+          {
+            AND: [
+              {
+                name: {
+                  contains: "ming",
+                },
+              },
+              {
+                age: {
+                  gt: 10,
+                },
+              },
+            ],
+          },
+          {
+            height: {
+              gt: 145,
+            },
+          },
+        ],
+      },
+    });
+  });
 });
 
-describe.skip("query SQL build", () => {
+describe("query SQL build", () => {
   it("there is no filter", () => {
     const inputs: FilterInput[][] = [];
     const sql = buildQuerySQL(
@@ -667,6 +1016,98 @@ describe.skip("query SQL build", () => {
       []
     );
     expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs` WHERE `paragraphs`.`name` LIKE '%hello%'");
+  });
+
+  it("multiple data type", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "created",
+            type: TableColumnType.DateTime,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "created",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "<",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            type: "datetime-local",
+            value: "2024/04/12",
+            defaultValue: "2024/04/12",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "paragraphs",
+        columns: [
+          {
+            name: "created",
+            type: TableColumnType.DateTime,
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      []
+    );
+    expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs` WHERE `paragraphs`.`created` < '2024/04/12 00:00:00'");
+  });
+
+  it("support operator", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "!=",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "hello",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "paragraphs",
+        columns: [
+          {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      []
+    );
+    expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs` WHERE `paragraphs`.`name` != 'hello'");
   });
 
   it("has join", () => {
@@ -1220,6 +1661,138 @@ describe.skip("query SQL build", () => {
     );
     expect(sql).toBe(
       "SELECT `students`.* FROM `students` JOIN `grades` ON `grades`.`id` = `students`.`grade_id` JOIN `schools` ON `schools`.`id` = `grades`.`school_id` WHERE ((`students`.`name` LIKE '%hong%' OR `students`.`name` LIKE '%ming%') AND `schools`.`name` LIKE '%Friends%')"
+    );
+  });
+
+  it("multiple AND", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "ming",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "age",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "age",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "<",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 12,
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "height",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "height",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: ">",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 145,
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          {
+            name: "age",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          {
+            name: "height",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          {
+            name: "hobby",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      []
+    );
+    expect(sql).toBe(
+      "SELECT `students`.* FROM `students` WHERE ((`students`.`name` LIKE '%ming%' AND `students`.`age` < 12) AND `students`.`height` > 145)"
     );
   });
 });

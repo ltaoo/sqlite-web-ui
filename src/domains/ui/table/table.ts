@@ -187,6 +187,10 @@ export class TableCore extends BaseDomain<TheTypesOfBaseEvents> {
   setRows(rows: TableRowCore[]) {
     this.rows = rows;
   }
+  setVisibleRows(rows: TableRowCore[]) {
+    this.visibleRows = rows;
+    this.emit(Events.Change, { ...this.state });
+  }
   refresh() {
     console.log("[DOMAIN]ui/table - refresh", this.rows.length);
     this.visibleRows = this.rows.slice(this.range.start, this.range.end);

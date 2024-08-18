@@ -1,7 +1,7 @@
 /**
  * @file 数据库管理
  */
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createSignal, For, Match, onMount, Show, Switch } from "solid-js";
 import { Calendar, Check, Hash, Settings } from "lucide-solid";
 import dayjs from "dayjs";
 
@@ -11,7 +11,7 @@ import { RequestCore } from "@/domains/request";
 import { Response } from "@/domains/list/typing";
 import { Select } from "@/components/ui/select";
 import { ButtonCore, InputCore, PopoverCore, SelectCore } from "@/domains/ui";
-import { Button, Input, Popover } from "@/components/ui";
+import { Button, Dialog, FreeInput, Input, Popover, PurePopover } from "@/components/ui";
 import { TableRowCore } from "@/domains/ui/table/row";
 import { TableCellCore } from "@/domains/ui/table/cell";
 import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
@@ -20,6 +20,9 @@ import { DEFAULT_RESPONSE } from "@/domains/list/constants";
 import { PrefixTag, TableFilterCore } from "@/biz/filter";
 import { execQueryRaw, fetchTableList, fetchTableListProcess } from "@/biz/services";
 import { buildQuerySQL } from "@/biz/filter/utils";
+import { Result } from "@/domains/result";
+
+const DATETIME_FORMAT = "YYYY-MM-DD HH:mm:ss";
 
 function SqliteDatabasePageCore(props: ViewComponentProps) {
   const { app, storage } = props;
@@ -47,22 +50,22 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       // options: {},
     });
     const base = columns.map((column, i) => {
-      const { name, type, references } = column;
+      const { name, type, is_primary_key, references } = column;
       const r = new TableColumnCore({
         x: i,
         type,
         name: name,
-        is_primary_key: 0,
+        is_primary_key: Number(is_primary_key),
         width: widths[name] || 200,
         references,
-        // options: (() => {
-        //   if (type === "datetime") {
-        //     return {
-        //       format: "YYYY-MM-DD",
-        //     };
-        //   }
-        //   return {};
-        // })(),
+        options: (() => {
+          if (type === "datetime") {
+            return {
+              format: DATETIME_FORMAT,
+            };
+          }
+          return {};
+        })(),
       });
       return r;
     });
@@ -96,7 +99,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
                 if (cell === null) {
                   return cell;
                 }
-                return dayjs(cell).format("YYYY-MM-DD hh:mm:ss");
+                return dayjs(cell).format(column.options?.format || DATETIME_FORMAT);
               }
               return cell as string;
             })(),
@@ -138,12 +141,10 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       response.noMore = false;
       response.loading = true;
       emitter.emit(Events.ResponseChange, { ...response });
-      const partSQL = buildQuerySQL($table, values, $request.tableList.response || []);
-      console.log(values);
-      // console.log(values.map((v) => v.value));
-      console.log(partSQL);
-      const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
-      const sql = partSQL + pagination + ";";
+      const sql = $filter.buildSQL($table, $request.tableList.response || [], response);
+      // const partSQL = buildQuerySQL($table, values, $request.tableList.response || []);
+      // const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
+      // const sql = partSQL + pagination + ";";
       const r = await $request.exec.run({ query: sql });
       response.loading = false;
       emitter.emit(Events.ResponseChange, { ...response });
@@ -178,7 +179,7 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
     if (!first) {
       return;
     }
-    const sql = `DELETE FROM ${name} WHERE ${first.name} IN (${selectedRows
+    const sql = `DELETE FROM \`${name}\` WHERE \`${first.name}\` IN (${selectedRows
       .map((i) => {
         return data[i][0];
       })
@@ -196,9 +197,44 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       return !selectedRows.includes(cell.y);
     });
     const rows = $table.rows.filter((row, i) => !selectedRows.includes(i));
+    const nextVisibleRows = $table.visibleRows.filter((row, i) => !selectedRows.includes(i));
     $table.setData(nextData);
     $table.setRows(rows);
+    $table.setVisibleRows(nextVisibleRows);
     $table.clearSelectedRows();
+  }
+  async function updateCellAtPosition($table: TableCore, position: [number, number], value: unknown) {
+    const { name, data, columns } = $table;
+    const [x, y] = position;
+    const id = data[y][0];
+    const column = columns[x];
+    if (!column) {
+      return Result.Err("没有找到匹配的列");
+    }
+    const primary = columns.find((c) => c.primary_key);
+    if (!primary) {
+      return Result.Err("表没有主键");
+    }
+    const v = (() => {
+      if (column.type === TableColumnType.Text) {
+        return `'${value}'`;
+      }
+      if (column.type === TableColumnType.DateTime) {
+        return `'${dayjs(value as string).format(column.options?.format || DATETIME_FORMAT)}'`;
+        // return `'${value}'`;
+      }
+      return id;
+    })();
+    const primary_key = (() => {
+      if (column.type === TableColumnType.Text) {
+        return `'${id}'`;
+      }
+      return id;
+    })();
+    const sql = `UPDATE \`${name}\` SET \`${column.name}\` = ${v} WHERE \`${primary.name}\` = ${primary_key};`;
+    const r = await $request.exec.run({ query: sql });
+    // const $cell = $table.rows[y].cells[x];
+    return r;
   }
   async function execPendingUpdate() {
     const pending = $table.state.pendingUpdate;
@@ -210,22 +246,11 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       await (async () => {
         const opt = pending[i];
         const { x, y, value } = opt;
-        const { name, columns, data } = $table;
-        const column = columns[x];
-        if (!column) {
-          return;
-        }
-        const first = columns[1];
-        if (!first) {
-          return;
-        }
+        const { name } = $table;
         if (!name) {
           return;
         }
-        const id = data[y][0];
-        const sql = `UPDATE ${name} SET ${column.name} = '${value}' WHERE ${first.name} = '${id}';`;
-        console.log(sql);
-        const r = await $request.exec.run({ query: sql });
+        const r = await updateCellAtPosition($table, [x, y], value);
         if (r.error) {
           app.tip({
             text: [r.error.message],
@@ -238,9 +263,11 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
   }
 
   enum Events {
+    RowProfile,
     ResponseChange,
   }
   type TheTypesOfEvents = {
+    [Events.RowProfile]: { row: { field: string; value: string }[]; x: number; y: number };
     [Events.ResponseChange]: Response<string[]>;
   };
   const emitter = base<TheTypesOfEvents>();
@@ -260,6 +287,12 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
     ui: {
       $table,
       $filter,
+      $preview: new ButtonCore({
+        onClick() {
+          const sql = $filter.buildSQL($table, $request.tableList.response || [], response);
+          alert(sql);
+        },
+      }),
       $delete: new ButtonCore({
         onClick() {
           removeSelectedRows();
@@ -336,6 +369,53 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
       $table.setRows(rows);
       $table.setData(dataSource);
       $table.refresh();
+    },
+    updateCellAtPosition,
+    tip: app.tip.bind(app),
+    async fetchRowProfile(values: { name: string; value: string; x: number; y: number }) {
+      const { name, value, x, y } = values;
+      const table = ($request.tableList.response || []).find((t) => t.name === name);
+      if (!table) {
+        app.tip({
+          text: ["没有找到匹配的表"],
+        });
+        return;
+      }
+      const primary = table.columns.find((col) => col.is_primary_key);
+      if (!primary) {
+        app.tip({
+          text: ["表没有主键"],
+        });
+        return;
+      }
+      const v = primary.type === TableColumnType.Integer ? value : `'${value}'`;
+      const r = await $request.exec.run({ query: `SELECT * FROM \`${table.name}\` WHERE \`${primary.name}\` = ${v};` });
+      if (r.error) {
+        app.tip({
+          text: [r.error.message],
+        });
+        return;
+      }
+      const data = r.data;
+      if (!data) {
+        app.tip({
+          text: ["结果为空"],
+        });
+        return;
+      }
+      const row = data[0];
+      const result = table.columns.map((column, i) => {
+        const { name } = column;
+        return {
+          field: name,
+          value: row[i],
+        };
+      });
+      emitter.emit(Events.RowProfile, {
+        x,
+        y,
+        row: result,
+      });
     },
     getWidths() {
       const prev = storage.get("column_widths", {});
@@ -423,6 +503,9 @@ function SqliteDatabasePageCore(props: ViewComponentProps) {
     },
     onResponseChange(handler: Handler<TheTypesOfEvents[Events.ResponseChange]>) {
       return emitter.on(Events.ResponseChange, handler);
+    },
+    onRowProfile(handler: Handler<TheTypesOfEvents[Events.RowProfile]>) {
+      return emitter.on(Events.RowProfile, handler);
     },
   };
 }
@@ -536,17 +619,36 @@ function TableCell(props: {
       <Show
         when={!state().editing}
         fallback={
-          <input
-            class="__a w-full h-full"
-            value={state().value as string}
+          <FreeInput
+            class="__a w-full h-full border-0 px-0"
             style={{ width: `${store.width - 16}px` }}
-            onChange={(event) => {
-              const value = event.currentTarget.value;
+            value={state().value as string}
+            defaultValue={$column.type === TableColumnType.DateTime ? new Date() : ""}
+            autoFocus
+            type={$column.type === TableColumnType.DateTime ? "datetime-local" : "text"}
+            onChange={(value) => {
+              // const value = event.currentTarget.value;
+              console.log("value");
               store.inputValue = value;
             }}
-            onAnimationEnd={(event) => {
-              event.currentTarget.focus();
-            }}
+            // onAnimationEnd={(event) => {
+            //   event.currentTarget.focus();
+            // }}
+            // onEnter={async () => {
+            //   if (store.inputValue === store.value) {
+            //     return;
+            //   }
+            //   const r = await $page.updateCellAtPosition($page.ui.$table, [store.x, store.y], store.inputValue);
+            //   if (r.error) {
+            //     $page.tip({
+            //       text: [r.error.message],
+            //     });
+            //     return;
+            //   }
+            //   store.value = store.inputValue;
+            //   store.unselect();
+            //   store.unedit();
+            // }}
             onBlur={() => {
               if (store.inputValue === store.value) {
                 return;
@@ -559,7 +661,31 @@ function TableCell(props: {
         {/* <Show when={$column.type === 'datetime'}>
 
         </Show> */}
-        {state().value as string}
+        <Switch fallback={state().value as string}>
+          <Match when={$column.type === TableColumnType.DateTime}>
+            <div class="flex items-center space-x-2">
+              <Calendar class="w-4 h-4" />
+              {state().value}
+            </div>
+          </Match>
+          <Match when={$column.references && state().value}>
+            <div
+              class="flex items-center space-x-2"
+              onClick={(event) => {
+                const { pageX, pageY } = event;
+                $page.fetchRowProfile({
+                  name: $column.references!,
+                  value: state().value,
+                  x: pageX,
+                  y: pageY,
+                });
+              }}
+            >
+              <div class="px-2 rounded-md bg-[#f3f3f3] cursor-pointer">{state().value}</div>
+              {/* <div class="px-2">{$column.references}</div> */}
+            </div>
+          </Match>
+        </Switch>
         <Show when={props.hasCheck}>
           <Check class="absolute right-0 top-1/2 w-4 h-4 transform -translate-y-1/2" />
         </Show>
@@ -573,11 +699,13 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
   const $page = SqliteDatabasePageCore(props);
   const $request = $page.$request;
   const $settings = new PopoverCore({});
+  const $record = new PopoverCore({});
 
   const [tables, setTables] = createSignal($request.tableList.response);
   const [response, setResponse] = createSignal($page.response);
   const [table, setTable] = createSignal($page.ui.$table.state);
   const [filters, setFilters] = createSignal($page.ui.$filter.values);
+  const [record, setRecord] = createSignal<{ field: string; value: string }[]>([]);
 
   let $head: HTMLDivElement;
 
@@ -605,6 +733,13 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
   });
   $page.ui.$filter.onChange((v) => {
     setFilters(v);
+  });
+  $page.onRowProfile((v) => {
+    setRecord(v.row);
+    $record.show({
+      x: v.x,
+      y: v.y,
+    });
   });
   $page.onResponseChange((v) => setResponse(v));
 
@@ -693,7 +828,11 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
               <Show when={filters().length}>
                 <div class="flex items-center self-end space-x-2">
                   <Button store={$page.ui.$filter.$submit}>查询</Button>
+                  <Button store={$page.ui.$filter.$reset}>重置</Button>
                   <Button store={$page.ui.$filter.$more}>增加条件</Button>
+                  <Button variant="subtle" store={$page.ui.$preview}>
+                    预览SQL
+                  </Button>
                 </div>
               </Show>
             </div>
@@ -813,6 +952,23 @@ export const SqliteDatabasePage: ViewComponent = (props) => {
                 }}
               </For>
             </div>
+          </div>
+        }
+      ></Popover>
+      <Popover
+        store={$record}
+        content={
+          <div class="space-y-2">
+            <For each={record()}>
+              {(field) => {
+                return (
+                  <div class="flex items-center">
+                    <div class="w-[88px]">{field.field}:</div>
+                    <div>{field.value}</div>
+                  </div>
+                );
+              }}
+            </For>
           </div>
         }
       ></Popover>

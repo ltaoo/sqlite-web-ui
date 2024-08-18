@@ -2,6 +2,7 @@ import { base, BaseDomain, Handler } from "@/domains/base";
 import { SelectCore, InputCore, ButtonCore } from "@/domains/ui";
 import { TableColumn, TableColumnCore } from "@/domains/ui/table/column";
 import { TableCore, TableWithColumns } from "@/domains/ui/table/table";
+import { buildQuerySQL } from "./utils";
 
 enum Events {
   Change,
@@ -58,6 +59,7 @@ export function TableFilterCore(props: {
   table: TableWithColumns;
   tables: TableWithColumns[];
   onSearch?: (values: FilterInput[][]) => void;
+  onPreviewSQL?: (sql: string) => void;
 }) {
   const { table, tables } = props;
 
@@ -68,6 +70,15 @@ export function TableFilterCore(props: {
 
   const $submit = new ButtonCore({
     onClick() {
+      if (props.onSearch) {
+        props.onSearch(_values);
+      }
+    },
+  });
+  const $reset = new ButtonCore({
+    onClick() {
+      initValues();
+      emitter.emit(Events.Change, [..._values]);
       if (props.onSearch) {
         props.onSearch(_values);
       }
@@ -111,6 +122,7 @@ export function TableFilterCore(props: {
       emitter.emit(Events.Change, [..._values]);
     },
   });
+  // const $preview = new ButtonCore({});
 
   /**
    * 这个方法仅提供给 Field 类型的 Input 使用
@@ -193,7 +205,7 @@ export function TableFilterCore(props: {
               type: "value",
               $input: new InputCore({
                 defaultValue: new Date(),
-                type: "date",
+                type: "datetime-local",
                 onEnter() {
                   $submit.click();
                 },
@@ -266,10 +278,10 @@ export function TableFilterCore(props: {
                 label: "不等于",
                 value: "!=",
               },
-              {
-                label: "不包含",
-                value: "NOT LIKE",
-              },
+              // {
+              //   label: "不包含",
+              //   value: "NOT LIKE",
+              // },
               // 这个应该判断字段是否支持为空
               //     {
               //       label: "IS NULL",
@@ -323,6 +335,31 @@ export function TableFilterCore(props: {
     // console.log("build options", options);
     return options;
   }
+  function initValues() {
+    _values = [];
+    const rowIndex = _values.length;
+    const prefix = new FilterInput({
+      type: "multiple",
+      $input: new PrefixTag({
+        value: "WHERE",
+      }),
+    });
+    const first = new FilterInput({
+      type: "field",
+      $input: new SelectCore<string>({
+        defaultValue: "",
+        options: buildOptions(_baseColumns),
+        onChange(v) {
+          const column = _table.columns.find((c) => c.name === v);
+          first.column = column || null;
+          console.log(_values[rowIndex].map((input) => input.type));
+          _values[rowIndex] = _values[rowIndex].slice(0, 2);
+          handleColumnSelectValueChange(v, [rowIndex, 1], first, _baseColumns);
+        },
+      }),
+    });
+    _values = [[prefix, first]];
+  }
 
   enum Events {
     Change,
@@ -337,6 +374,7 @@ export function TableFilterCore(props: {
       return _values;
     },
     $submit,
+    $reset,
     $more,
     setTable(table: TableWithColumns) {
       _table = table;
@@ -346,29 +384,14 @@ export function TableFilterCore(props: {
     },
     setOptions(columns: TableColumnCore[]) {
       _baseColumns = columns;
-      _values = [];
-      const rowIndex = _values.length;
-      const prefix = new FilterInput({
-        type: "multiple",
-        $input: new PrefixTag({
-          value: "WHERE",
-        }),
-      });
-      const first = new FilterInput({
-        type: "field",
-        $input: new SelectCore<string>({
-          defaultValue: "",
-          options: buildOptions(columns),
-          onChange(v) {
-            const column = _table.columns.find((c) => c.name === v);
-            first.column = column || null;
-            _values[rowIndex] = _values[rowIndex].slice(0, 2);
-            handleColumnSelectValueChange(v, [rowIndex, 1], first, columns);
-          },
-        }),
-      });
-      _values = [[prefix, first]];
+      initValues();
       emitter.emit(Events.Change, [..._values]);
+    },
+    buildSQL(table: TableWithColumns, tables: TableWithColumns[], response: { pageSize: number; page: number }) {
+      const partSQL = buildQuerySQL(table, _values, tables);
+      const pagination = ` LIMIT ${response.pageSize} OFFSET ${(response.page - 1) * response.pageSize}`;
+      const sql = partSQL + pagination + ";";
+      return sql;
     },
     onChange(handler: Handler<TheTypesOfEvents[Events.Change]>) {
       emitter.on(Events.Change, handler);

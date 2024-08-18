@@ -110,7 +110,7 @@ import { cn } from "@/utils";
 //   <SelectPrimitive.Separator class={cn("-mx-1 my-1 h-px bg-muted", props.class)} {...props} />
 // );
 
-export const Select = (props: { store: SelectCore<any> }) => {
+export const Select = (props: { store: SelectCore<any> } & JSX.HTMLAttributes<HTMLDivElement>) => {
   const { store } = props;
 
   const [state, setState] = createSignal(store.state);
@@ -123,7 +123,7 @@ export const Select = (props: { store: SelectCore<any> }) => {
   });
 
   return (
-    <div class="relative flex items-center py-1 h-10">
+    <div class={cn("relative flex items-center py-1 h-10", props.class)}>
       <Show when={state().value === null}>
         <div class="absolute top-1/2 inset-0 -translate-y-1/2 pointer-events-none">{state().placeholder}</div>
       </Show>
