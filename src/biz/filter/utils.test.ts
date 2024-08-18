@@ -538,196 +538,688 @@ describe("build orm object", () => {
       },
     });
   });
+
+  it("test1", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "grade",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "=",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 5,
+          }),
+        }),
+      ],
+    ];
+    const result = buildORMObject(new TableCore({ name: "students" }), inputs, [
+      {
+        name: "grades",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "grade",
+            type: TableColumnType.Integer,
+            is_primary_key: 0,
+            width: 0,
+          },
+        ],
+      },
+    ]);
+    expect(result).toStrictEqual({
+      name: "students",
+      where: {
+        grades: {
+          grade: {
+            equals: 5,
+          },
+        },
+      },
+    });
+  });
 });
 
-// describe("query SQL build", () => {
-//   it.skip("there is no filter", () => {
-//     const inputs: FilterInput[] = [];
-//     const sql = buildQuerySQL(
-//       new TableCore({
-//         name: "paragraphs",
-//       }),
-//       inputs,
-//       []
-//     );
-//     expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs`");
-//   });
-//   it.skip("only one field", () => {
-//     const inputs = [
-//       new FilterInput({
-//         type: "field",
-//         column: {
-//           name: "name",
-//           type: "text",
-//           width: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "name",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "condition",
-//         $input: new SelectCore({
-//           defaultValue: "LIKE",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "value",
-//         $input: new InputCore({
-//           defaultValue: "hello",
-//         }),
-//       }),
-//     ];
-//     const sql = buildQuerySQL(
-//       new TableCore({
-//         name: "paragraphs",
-//       }),
-//       inputs,
-//       []
-//     );
-//     expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs` WHERE `name` LIKE '%hello%'");
-//   });
-//   it.skip("has join", () => {
-//     const inputs = [
-//       new FilterInput({
-//         type: "join",
-//         column: {
-//           name: "subtitle_id",
-//           type: "integer",
-//           width: 0,
-//           references: "subtitles",
-//           is_primary_key: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "subtitles",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "field",
-//         column: {
-//           name: "title",
-//           type: "text",
-//           width: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "title",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "condition",
-//         $input: new SelectCore({
-//           defaultValue: "LIKE",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "value",
-//         $input: new InputCore({
-//           defaultValue: "Friends",
-//         }),
-//       }),
-//     ];
-//     const sql = buildQuerySQL(new TableCore({ name: "paragraphs" }), inputs, [
-//       {
-//         name: "subtitles",
-//         columns: [
-//           {
-//             name: "id",
-//             type: "integer",
-//             is_primary_key: 1,
-//             width: 0,
-//           },
-//         ],
-//       },
-//     ]);
-//     expect(sql).toBe(
-//       "SELECT `paragraphs`.* FROM `paragraphs` JOIN `subtitles` ON `subtitles`.`id` = `paragraphs`.`subtitle_id` WHERE `subtitles`.`title` LIKE '%Friends%'"
-//     );
-//   });
-//   it("has tow join", () => {
-//     const inputs = [
-//       new FilterInput({
-//         type: "join",
-//         column: {
-//           name: "media_episode_profile_id",
-//           type: "integer",
-//           width: 0,
-//           references: "media_episode_profiles",
-//           is_primary_key: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "media_episode_profiles",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "join",
-//         column: {
-//           name: "media_profile_id",
-//           type: "integer",
-//           width: 0,
-//           references: "media_profiles",
-//           is_primary_key: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "media_profiles",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "field",
-//         column: {
-//           name: "title",
-//           type: "text",
-//           width: 0,
-//         },
-//         $input: new SelectCore({
-//           defaultValue: "title",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "condition",
-//         $input: new SelectCore({
-//           defaultValue: "LIKE",
-//         }),
-//       }),
-//       new FilterInput({
-//         type: "value",
-//         $input: new InputCore({
-//           defaultValue: "Friends",
-//         }),
-//       }),
-//     ];
-//     const sql = buildQuerySQL(new TableCore({ name: "subtitles" }), inputs, [
-//       {
-//         name: "media_episode_profiles",
-//         columns: [
-//           {
-//             name: "unique_id",
-//             type: "integer",
-//             is_primary_key: 1,
-//             width: 0,
-//           },
-//           {
-//             name: "media_profile_id",
-//             type: "integer",
-//             is_primary_key: 0,
-//             references: "media_profiles",
-//             width: 0,
-//           },
-//         ],
-//       },
-//       {
-//         name: "media_profiles",
-//         columns: [
-//           {
-//             name: "unique_id",
-//             type: "integer",
-//             is_primary_key: 1,
-//             width: 0,
-//           },
-//         ],
-//       },
-//     ]);
-//     expect(sql).toBe(
-//       "SELECT `subtitles`.* FROM `subtitles` JOIN `media_episode_profiles` ON `media_episode_profiles`.`unique_id` = `subtitles`.`media_episode_profile_id` JOIN `media_profiles` ON `media_profiles`.`unique_id` = `media_episode_profiles`.`media_profile_id` WHERE `media_profiles`.`title` LIKE '%Friends%'"
-//     );
-//   });
-// });
+describe.skip("query SQL build", () => {
+  it("there is no filter", () => {
+    const inputs: FilterInput[][] = [];
+    const sql = buildQuerySQL(
+      new TableCore({
+        name: "paragraphs",
+      }),
+      inputs,
+      []
+    );
+    expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs`");
+  });
+  it("only one field", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "hello",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "paragraphs",
+        columns: [
+          {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      []
+    );
+    expect(sql).toBe("SELECT `paragraphs`.* FROM `paragraphs` WHERE `paragraphs`.`name` LIKE '%hello%'");
+  });
+
+  it("has join", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade",
+            type: TableColumnType.Integer,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "grade",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "=",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: 5,
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "students",
+        columns: [
+          {
+            type: TableColumnType.Integer,
+            name: "id",
+            width: 0,
+          },
+          {
+            type: TableColumnType.Integer,
+            name: "grade_id",
+            width: 0,
+            references: "grades",
+          },
+        ],
+      },
+      inputs,
+      [
+        {
+          name: "grades",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "grade",
+              type: TableColumnType.Integer,
+              is_primary_key: 0,
+              width: 0,
+            },
+          ],
+        },
+      ]
+    );
+    expect(sql).toBe(
+      "SELECT `students`.* FROM `students` JOIN `grades` ON `grades`.`id` = `students`.`grade_id` WHERE `grades`.`grade` = 5"
+    );
+  });
+  it("has tow join", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Friends",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      [
+        {
+          name: "grades",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "school_id",
+              type: TableColumnType.Integer,
+              references: "schools",
+              width: 0,
+            },
+          ],
+        },
+        {
+          name: "schools",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "name",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+          ],
+        },
+      ]
+    );
+    expect(sql).toBe(
+      "SELECT `students`.* FROM `students` JOIN `grades` ON `grades`.`id` = `students`.`grade_id` JOIN `schools` ON `schools`.`id` = `grades`.`school_id` WHERE `schools`.`name` LIKE '%Friends%'"
+    );
+  });
+
+  it("join with AND operator", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Friends",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "address",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "address",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Hangzhou",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      [
+        {
+          name: "grades",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "school_id",
+              type: TableColumnType.Integer,
+              references: "schools",
+              width: 0,
+            },
+          ],
+        },
+        {
+          name: "schools",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "name",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+            {
+              name: "address",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+          ],
+        },
+      ]
+    );
+    expect(sql).toBe(
+      "SELECT `students`.* FROM `students` JOIN `grades` ON `grades`.`id` = `students`.`grade_id` JOIN `schools` ON `schools`.`id` = `grades`.`school_id` WHERE (`schools`.`name` LIKE '%Friends%' AND `schools`.`address` LIKE '%Hangzhou%')"
+    );
+  });
+
+  it("join with mix AND and OR operator", () => {
+    const inputs = [
+      [
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "hong",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "OR", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "ming",
+          }),
+        }),
+      ],
+      [
+        new FilterInput({
+          type: "multiple",
+          $input: new SelectCore({ defaultValue: "AND", options: [] }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "grades",
+          },
+          $input: new SelectCore({
+            defaultValue: "grades",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "school_id",
+            type: TableColumnType.Integer,
+            width: 0,
+            references: "schools",
+            is_primary_key: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "schools",
+          }),
+        }),
+        new FilterInput({
+          type: "field",
+          column: {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          $input: new SelectCore({
+            defaultValue: "name",
+          }),
+        }),
+        new FilterInput({
+          type: "condition",
+          $input: new SelectCore({
+            defaultValue: "LIKE",
+          }),
+        }),
+        new FilterInput({
+          type: "value",
+          $input: new InputCore({
+            defaultValue: "Friends",
+          }),
+        }),
+      ],
+    ];
+    const sql = buildQuerySQL(
+      {
+        name: "students",
+        columns: [
+          {
+            name: "id",
+            type: TableColumnType.Integer,
+            is_primary_key: 1,
+            width: 0,
+          },
+          {
+            name: "name",
+            type: TableColumnType.Text,
+            width: 0,
+          },
+          {
+            name: "grade_id",
+            type: TableColumnType.Integer,
+            references: "grades",
+            width: 0,
+          },
+        ],
+      },
+      inputs,
+      [
+        {
+          name: "grades",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "grade",
+              type: TableColumnType.Integer,
+              width: 0,
+            },
+            {
+              name: "school_id",
+              type: TableColumnType.Integer,
+              references: "schools",
+              width: 0,
+            },
+          ],
+        },
+        {
+          name: "schools",
+          columns: [
+            {
+              name: "id",
+              type: TableColumnType.Integer,
+              is_primary_key: 1,
+              width: 0,
+            },
+            {
+              name: "name",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+            {
+              name: "address",
+              type: TableColumnType.Text,
+              width: 0,
+            },
+          ],
+        },
+      ]
+    );
+    expect(sql).toBe(
+      "SELECT `students`.* FROM `students` JOIN `grades` ON `grades`.`id` = `students`.`grade_id` JOIN `schools` ON `schools`.`id` = `grades`.`school_id` WHERE ((`students`.`name` LIKE '%hong%' OR `students`.`name` LIKE '%ming%') AND `schools`.`name` LIKE '%Friends%')"
+    );
+  });
+});

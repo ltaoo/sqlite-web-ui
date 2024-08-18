@@ -77,7 +77,7 @@ type TableQuery = {
 //   AND?: TableQuery[];
 //   OR?: TableQuery[];
 // };
-export function buildORMObject(table: TableCore, rows: FilterInput[][], tables: TableWithColumns[]) {
+export function buildORMObject(table: TableWithColumns, rows: FilterInput[][], tables: TableWithColumns[]) {
   const { name } = table;
   const result: {
     name: string;
@@ -194,107 +194,167 @@ export function buildORMObject(table: TableCore, rows: FilterInput[][], tables: 
   }
   return result;
 }
+function buildSQLFromORM(
+  table: TableWithColumns,
+  where: TableQuery,
+  tables: { name: string; columns: TableColumn[] }[]
+) {
+  const joins: {
+    table: string;
+    primary_key: string;
+    reference: {
+      table: string;
+      primary_key: string;
+    };
+  }[] = [];
+
+  function buildCondition(key: string, condition: StringFilter | IntFilter, reference: TableWithColumns) {
+    // console.warn("[BIZ]filter/utils - buildCondition", key, condition, reference);
+    const column = reference.columns.find((col) => col.name === key);
+    if (!column) {
+      console.warn("unexpected", key, condition, reference);
+      return "";
+    }
+    let part = `\`${reference.name}\`.`;
+    const operator = Object.keys(condition)[0];
+    // @ts-ignore
+    const value = condition[operator];
+    if (value === undefined) {
+      return part;
+    }
+    const v = column.type === TableColumnType.Text ? `'${value}'` : value;
+    // console.log(key, operator, v);
+    (() => {
+      if (operator === "equals") {
+        part += `\`${key}\` = ${v}`;
+        return;
+      }
+      if (operator === "in") {
+        return;
+      }
+      if (operator === "notIn") {
+        return;
+      }
+      if (operator === "lt") {
+        part += `\`${key}\` < ${v}`;
+        return;
+      }
+      if (operator === "lte") {
+        return;
+      }
+      if (operator === "gt") {
+        return;
+      }
+      if (operator === "gte") {
+        return;
+      }
+      if (operator === "endsWith") {
+        part += `\`${key}\` LIKE '${value}%'`;
+        return;
+      }
+      if (operator === "startsWith") {
+        part += `\`${key}\` LIKE '%${value}'`;
+        return;
+      }
+      if (operator === "contains") {
+        part += `\`${key}\` LIKE '%${value}%'`;
+        return;
+      }
+      if (operator === "not") {
+        return;
+      }
+    })();
+    return part;
+  }
+  function queryToString(query: TableQuery | ReferenceTableQuery, reference: TableWithColumns) {
+    // console.log("invoke queryToString", query);
+    const keys = Object.keys(query);
+    let result = "";
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      (() => {
+        const value = query[key];
+        if (!value) {
+          return;
+        }
+        if (key === "AND") {
+          const parts = (value as TableQuery[])
+            .map((v) => {
+              return queryToString(v, reference);
+            })
+            .filter(Boolean);
+          // console.log("before parts.join(AND)", parts);
+          result += parts.length > 1 ? `(${parts.join(" AND ")})` : parts[0];
+          return;
+        }
+        if (key === "OR") {
+          const parts = (value as TableQuery[])
+            .map((v) => {
+              return queryToString(v, reference);
+            })
+            .filter(Boolean);
+          // console.log("before parts.join(OR)", parts);
+          result += parts.length > 1 ? `(${parts.join(" OR ")})` : parts[0];
+          return;
+        }
+        const table = tables.find((t) => t.name === key);
+        // const sub = queryToString(v);
+        if (table) {
+          const primary = table.columns.find((column) => column.is_primary_key);
+          const foreign = reference.columns.find((column) => column.references === key);
+          // console.log("is JOIN", key, value, table, primary, reference.columns, foreign);
+          if (primary && foreign) {
+            // 这里还是暂时存到对象，万一重复 JOIN 同一张表，代码就奇怪了
+            const existing = joins.find((t) => t.table === table.name);
+            if (!existing) {
+              joins.push({
+                table: table.name,
+                primary_key: primary.name,
+                reference: {
+                  table: reference.name,
+                  // primary_key: reference.columns.find((c) => c.is_primary_key)!.name,
+                  primary_key: foreign.name,
+                  // primary_key: "id",
+                },
+              });
+            }
+          }
+          result += queryToString(value, table);
+          return;
+        }
+        // 字段
+        const part = buildCondition(key, value as StringFilter | IntFilter, reference);
+        // console.log(part);
+        result += part;
+        // const condition: (keyof typeof value)[number] = Object.keys(value)[0];
+        // @ts-ignore
+        // const v = value[condition];
+        // console.log("the value is object")
+        // if (condition) {
+        //   (() => {})();
+        // }
+      })();
+    }
+    return result;
+  }
+  // return `SELECT * FROM \`${table_name}\` WHERE ${queryToString(where)}`;
+  // return ` WHERE ${queryToString(where)}`;
+  const condition = queryToString(where, table);
+  let result = "";
+  // console.log("joins", joins);
+  for (let i = 0; i < joins.length; i += 1) {
+    const { table, primary_key, reference } = joins[i];
+    result += ` JOIN \`${table}\` ON \`${table}\`.\`${primary_key}\` = \`${reference.table}\`.\`${reference.primary_key}\``;
+  }
+  return result + (condition ? ` WHERE ${condition}` : "");
+}
 /**
- * @todo 如果存在多个 WHERE 子句，需要按顺序使用 ()，比如 name = 'Friends' OR name = 'Break.Girls' AND order_num = 2
- * 预期是找出 名称等于Friends或Girls 的，在这个基础上，再筛选 order_num等于2。实际上的结果，是 name等于Friends的所有记录，或name等于Girls并且order_num等于2
- * 所以筛选出的记录数会更多。需要使用 (name = 'Friends' OR name = 'Break.Girls') AND order_num = 2
- *
- * 应该先构建出一个元对象，再根据元对象生成 SQL 语句
- * 因为在构建 SQL 语句过程中，后面的选项或值，会影响前面已构建的内容
- * 但元对象可以随意修改。其实这就是 ORM，比如 prisma.findFirst({ where: { name: { contain: 'Friends' }} })
+ * 根据表单值，构建 SQL 语句
  */
-export function buildQuerySQL(table: TableCore, inputs: FilterInput[][], tables: TableWithColumns[]) {
+export function buildQuerySQL(table: TableWithColumns, inputs: FilterInput[][], tables: TableWithColumns[]) {
   const { name } = table;
   let query = `SELECT \`${name}\`.* FROM \`${name}\``;
-  // const last = inputs[inputs.length - 1];
-  // if (!last) {
-  //   return query;
-  // }
-  // if (last.type !== "value") {
-  //   return query;
-  // }
-
-  // let prevJoin: FilterInput | null = null;
-  // let prevCondition: FilterInput | null = null;
-  // let prevField: FilterInput | null = null;
-
-  // let i = 0;
-  // while (i < inputs.length) {
-  //   const input = inputs[i];
-  //   (() => {
-  //     console.log(i, input.type, input.column?.name, input.column?.references);
-  //     if (input.type === "join") {
-  //       const column = input.column;
-  //       if (column) {
-  //         const referenceTableName = input.value;
-  //         const referencedTable = tables.find((t) => t.name === referenceTableName);
-  //         // console.log("find referenced table", referencedTable, referenceTableName,  tables);
-  //         if (referencedTable) {
-  //           const primaryColumn = referencedTable.columns.find((col) => col.is_primary_key);
-  //           console.log(
-  //             "find primary column in referenced table",
-  //             primaryColumn?.name,
-  //             primaryColumn?.references
-  //             // prevJoin
-  //           );
-  //           if (primaryColumn) {
-  //             if (prevJoin) {
-  //               query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${prevJoin.column?.references}\`.\`${column.name}\``;
-  //               prevJoin = input;
-  //               return;
-  //             }
-  //             query += ` JOIN \`${input.value}\` ON \`${input.value}\`.\`${primaryColumn.name}\` = \`${name}\`.\`${column.name}\``;
-  //             prevJoin = input;
-  //           }
-  //         }
-  //       }
-  //       return;
-  //     }
-  //     if (input.type === "field") {
-  //       prevField = input;
-  //       if (prevJoin) {
-  //         if (prevJoin.type === "join") {
-  //           query += ` WHERE \`${prevJoin.value}\`.\`${input.value}\``;
-  //         }
-  //         prevJoin = null;
-
-  //         return;
-  //       }
-  //       query += ` WHERE \`${input.value}\``;
-  //       return;
-  //     }
-  //     if (input.type === "condition") {
-  //       prevCondition = input;
-  //       query += ` ${input.value}`;
-  //       return;
-  //     }
-  //     if (input.type === "value") {
-  //       const condition = prevCondition;
-  //       prevCondition = null;
-  //       const str = [];
-  //       if (prevField) {
-  //         if (prevField.column?.type === "text") {
-  //           str.push("'");
-  //         }
-  //       }
-  //       if (condition?.value === "LIKE") {
-  //         str.push(`%`);
-  //       }
-  //       str.push(input.value);
-  //       if (condition?.value === "LIKE") {
-  //         str.push(`%`);
-  //       }
-  //       if (prevField) {
-  //         if (prevField.column?.type === "text") {
-  //           str.push("'");
-  //         }
-  //       }
-  //       query += " " + str.join("");
-  //       prevField = null;
-  //     }
-  //   })();
-  //   i += 1;
-  // }
-
-  return query;
+  const orm = buildORMObject(table, inputs, tables);
+  const where = buildSQLFromORM(table, orm.where, tables);
+  return query + where;
 }
